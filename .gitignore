@@ -16,4 +16,7 @@
 **/*.pb
 log
 vocab.pkl.gz
+
+.idea
+
 研发规划.md
