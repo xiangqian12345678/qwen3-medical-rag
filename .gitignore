@@ -1,11 +1,13 @@
-**/raw_data/
-*.bin
+# pycharm相关
+.idea/
 
-# 忽略 foo/ 目录下所有直接子项
-/Milvus/*
-# 但不要忽略 a 和 b
-!/Milvus/examples.py
-!/Milvus/standalone_embed.sh
+
+# 程序相关
+data/
+model/
+output/
+研发规划.md
+
 
 # Python
 .DS_Store
@@ -16,7 +18,3 @@
 **/*.pb
 log
 vocab.pkl.gz
-
-.idea
-
-研发规划.md
