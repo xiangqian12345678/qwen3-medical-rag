@@ -17,7 +17,7 @@ def pretty_print_docs(docs):
 
 
 # 1.数据准备
-RESOURCE_DIR = "/mnt/c/大模型/智泊大模型全栈教程总结/02-教材整理 L2/代码/Langchain/6.langchain高级RAG/data/resources"
+RESOURCE_DIR = "../../data/base/resources"
 TXT_DOCUMENT_PATH = os.path.join(RESOURCE_DIR, "deepseek百度百科.txt")
 loader = TextLoader(TXT_DOCUMENT_PATH, encoding='utf-8')
 documents = loader.load()

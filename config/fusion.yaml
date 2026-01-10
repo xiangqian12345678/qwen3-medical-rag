@@ -1,0 +1,19 @@
+# 格式说明：
+#   文件名称:
+#       type: txt,pdf or jsonl    #文件类型
+#       字段名称: 目标字段           #字段对应关系
+#       字段名称: 目标字段
+qa_50000:
+  type: jsonl
+  question: question
+  answer: answer
+  text: text
+
+# txt文档，所有内容作为一个text字段
+baike:
+  type: txt
+
+
+# pdf文档，所有内容作为一个text字段
+good:
+  type: pdf

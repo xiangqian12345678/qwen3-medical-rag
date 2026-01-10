@@ -65,7 +65,7 @@ def test_summary():
 
 def test_summary_index():
     # 1.文件路径
-    RESOURCE_DIR = "/mnt/c/大模型/智泊大模型全栈教程总结/02-教材整理 L2/代码/Langchain/6.langchain高级RAG/data/resources"
+    RESOURCE_DIR = "../../data/base/resources"
     TXT_DOCUMENT_PATH = os.path.join(RESOURCE_DIR, "deepseek百度百科.txt")
 
     # 2.初始化模型
