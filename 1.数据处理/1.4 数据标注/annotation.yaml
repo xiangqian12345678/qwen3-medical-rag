@@ -1,0 +1,38 @@
+# 数据标注配置文件 - 医疗RAG专用
+
+# ========== 切分方式配置 ==========
+chunk_size: 512        # 子chunk大小
+overlap: 128            # 重叠大小(可选，默认0)
+
+# ========== 父子索引配置 ==========
+parent_chunk:
+  enabled: true          # 是否启用父子索引
+  chunk_size: 2048  # 父chunk大小
+  index: true     # 是否索引父chunk
+
+# ========== 摘要生成配置 ==========
+summary:
+  enabled: true          # 是否生成摘要
+  max_length: 200        # 摘要最大长度
+  index: true    # 是否索引摘要
+
+# ========== 假设性问题生成配置 ==========
+questions:
+  enabled: true          # 是否生成假设性问题
+  count: 3       # 生成问题数量
+  index: true  # 是否索引问题
+
+# ========== 源数据生成配置 ==========
+keyword:
+  enable: true          # 生成关键词字段
+  count: 4       # 最多生成关键词数量
+  index: false # 是否索引关键词
+
+chunk_id:          # 记录是第几个chunk
+  enabled: true
+
+# ========== 原始字段保留配置 ==========
+preserve_fields:
+  doc_id: true           # 保留文档ID
+  source: true           # 保留数据源
+  timestamp: true        # 保留时间戳
