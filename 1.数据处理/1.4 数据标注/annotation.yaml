@@ -1,8 +1,9 @@
 # 数据标注配置文件 - 医疗RAG专用
 
 # ========== 切分方式配置 ==========
-chunk_size: 512        # 子chunk大小
-overlap: 128            # 重叠大小(可选，默认0)
+chunk:
+  chunk_size: 512        # 子chunk大小
+  overlap: 128            # 重叠大小(可选，默认0)
 
 # ========== 父子索引配置 ==========
 parent_chunk:

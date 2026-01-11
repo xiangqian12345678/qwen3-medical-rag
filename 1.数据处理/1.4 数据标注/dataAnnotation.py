@@ -155,8 +155,9 @@ def annotate_record(record: Dict[str, Any], config: Dict[str, Any]) -> Generator
         标注后的chunk字典
     """
     # 获取配置
-    chunk_size = config.get('chunk_size', 512)
-    overlap = config.get('overlap', 0)
+    chunk_config = config.get('chunk', {})
+    chunk_size = chunk_config.get('chunk_size', 512)
+    overlap = chunk_config.get('overlap', 0)
     parent_chunk_config = config.get('parent_chunk', {})
     summary_config = config.get('summary', {})
     questions_config = config.get('questions', {})
@@ -309,7 +310,8 @@ def annotate_file(
     linecount = 1
     with open(output_file, 'a', encoding='utf-8') as f:
         for record in read_jsonl(input_file):
-            print(f"处理第{linecount}条数据")
+            if linecount % 1000 == 0:
+                print(f"处理第{linecount}条数据")
             linecount += 1
 
             # 使用生成器逐个处理chunk，避免在内存中累积
@@ -318,6 +320,7 @@ def annotate_file(
 
             # 显式释放记录引用，触发垃圾回收
             del record
+
 
 def main():
     """主函数"""
