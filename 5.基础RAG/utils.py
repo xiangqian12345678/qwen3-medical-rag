@@ -62,13 +62,37 @@ def create_embedding_client(config: DenseFieldConfig) -> Embeddings:
 
 
 def format_documents(documents: List[Any]) -> str:
-    """格式化文档为字符串"""
+    """
+    格式化文档为字符串
+
+    Args:
+        documents: 文档列表，元素类型为 Document 或 dict
+            Document 示例结构:
+            Document(
+                page_content="糖尿病是一组以高血糖为特征的代谢性疾病...",
+                metadata={
+                    "pk": "primary_key",
+                    "distance": 0.123,
+                    "chunk": "糖尿病是一组以高血糖为特征的代谢性疾病...",
+                    "parent_chunk": "更长的父块内容...",
+                    "summary": "摘要内容...",
+                    "questions": "相关问题...",
+                    "document": "文档标题...",
+                    "source": "来源...",
+                    "source_name": "来源名称...",
+                    "lt_doc_id": "doc_123",
+                    "chunk_id": 0,
+                    "hash_id": "abc123"
+                }
+            )
+
+    Returns:
+        格式化后的文档字符串
+    """
     parts = []
     for i, doc in enumerate(documents):
         if hasattr(doc, 'page_content'):
             content = doc.page_content
-        elif isinstance(doc, dict):
-            content = doc.get("text", "")
         else:
             content = str(doc)
         parts.append(f"## 文档{i + 1}：\n{content}\n")

@@ -4,13 +4,13 @@
 """
 
 from .config import ConfigLoader
-from .knowledge_base import MedicalKnowledgeBase
-from .retriever import MedicalRetriever
+from .knowledge_base import KnowledgeBase
+from .retriever import KnowledgeRetriever
 from .rag import SimpleRAG
 
 __all__ = [
     "ConfigLoader",
-    "MedicalKnowledgeBase",
-    "MedicalRetriever",
+    "KnowledgeBase",
+    "KnowledgeRetriever",
     "SimpleRAG",
 ]

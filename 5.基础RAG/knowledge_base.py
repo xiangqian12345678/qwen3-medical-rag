@@ -1,4 +1,4 @@
-"""医疗知识库 - 核心检索模块"""
+"""核心检索模块"""
 import logging
 from typing import List, Dict, Any
 from langchain_core.documents import Document
@@ -8,19 +8,15 @@ from config.models import AppConfig, SearchRequest, SingleSearchRequest
 from utils import create_embedding_client
 from embed import Vocabulary, BM25Vectorizer, BM25SparseEmbedding
 
-
 logger = logging.getLogger(__name__)
 
 
-class MedicalKnowledgeBase:
-    """医疗知识库 - 支持混合检索"""
+class KnowledgeBase:
 
     def __init__(self, app_config: AppConfig):
         """
         初始化知识库
-
-        Args:
-            app_config: 应用配置
+        Args: app_config: 应用配置
         """
         self.app_config = app_config
         self.milvus_config = app_config.milvus
@@ -77,9 +73,9 @@ class MedicalKnowledgeBase:
             raise ValueError(f"未找到嵌入器: {anns_field}")
 
     def _build_ann_search_request(
-        self,
-        query: str,
-        single_request: SingleSearchRequest
+            self,
+            query: str,
+            single_request: SingleSearchRequest
     ) -> AnnSearchRequest:
         """
         构建AnnSearchRequest
@@ -105,10 +101,10 @@ class MedicalKnowledgeBase:
         )
 
     def _search(
-        self,
-        query: str,
-        single_request: SingleSearchRequest,
-        output_fields: List[str]
+            self,
+            query: str,
+            single_request: SingleSearchRequest,
+            output_fields: List[str]
     ) -> List[Dict]:
         """
         单路检索
@@ -139,8 +135,8 @@ class MedicalKnowledgeBase:
         return result[0] if result else []
 
     def _hybrid_search(
-        self,
-        req: SearchRequest
+            self,
+            req: SearchRequest
     ) -> List[Dict]:
         """
         混合检索
@@ -160,8 +156,17 @@ class MedicalKnowledgeBase:
         if req.fuse.method == "rrf":
             ranker = RRFRanker(k=req.fuse.k)
         else:
-            weights = req.fuse.weights if req.fuse.weights else [0.5, 0.5]
-            ranker = WeightedRanker(*weights)
+            # weighted模式：从字典中提取权重值并转换为列表
+            # 权重按检索顺序对应各路检索结果
+            if req.fuse.weights:
+                if isinstance(req.fuse.weights, dict):
+                    weight_list = list(req.fuse.weights.values())
+                else:
+                    weight_list = req.fuse.weights
+            else:
+                # 默认权重：4个检索字段的平均权重
+                weight_list = [0.25, 0.25, 0.25, 0.25]
+            ranker = WeightedRanker(*weight_list)
 
         # 执行混合检索
         result = self.client.hybrid_search(
@@ -177,10 +182,8 @@ class MedicalKnowledgeBase:
     def search(self, req: SearchRequest) -> List[Document]:
         """
         执行知识库检索
-
         Args:
             req: 检索请求
-
         Returns:
             Document列表
         """

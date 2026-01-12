@@ -10,8 +10,8 @@ from langchain_core.messages import AIMessage
 
 from config.models import AppConfig, SearchRequest, SingleSearchRequest, FusionSpec
 from config.loader import ConfigLoader
-from knowledge_base import MedicalKnowledgeBase
-from retriever import MedicalRetriever
+from knowledge_base import KnowledgeBase
+from retriever import KnowledgeRetriever
 from utils import create_llm_client, format_documents
 from prompts import get_prompt_template
 
@@ -53,8 +53,8 @@ class SimpleRAG:
             self.search_config = search_config
 
         # 初始化知识库和检索器
-        self.knowledge_base = MedicalKnowledgeBase(self.config)
-        self.retriever = MedicalRetriever(self.knowledge_base, self.search_config)
+        self.knowledge_base = KnowledgeBase(self.config)
+        self.retriever = KnowledgeRetriever(self.knowledge_base, self.search_config)
 
         # 初始化LLM
         self.llm = create_llm_client(self.config.llm)
@@ -172,30 +172,51 @@ class SimpleRAG:
         }
 
     def _setup_chain(self):
-        """构建RAG链"""
+        """构建RAG链
+
+        数据流分析：
+        1. 输入: {"input": query}
+        2. retrieve阶段:
+           - RunnablePassthrough.assign将self.retriever的返回结果赋值给result["retrieval_result"]
+           - self.retriever返回: {"documents": [...], "search_time": 1.2}
+           - 结果: {"input": query, "retrieval_result": {"documents": [...], "search_time": 1.2}}
+        3. format_docs阶段:
+           - RunnablePassthrough.assign将format_doc_str的返回结果赋值给result["all_document_str"]
+           - format_doc_str从result["retrieval_result"]["documents"]提取文档并格式化
+           - 结果: {"input": query, "retrieval_result": {...}, "all_document_str": "..."}
+        4. RunnablePassthrough.assign(llm=generate):
+           - generate链(prompt→llm→_strip_think_and_time)的返回值赋值给result["llm"]
+           - _strip_think_and_time返回: {"answer": "...", "generate_time": 2.3}
+           - 最终结果: {
+               "input": query,
+               "retrieval_result": {"documents": [...], "search_time": 1.2},
+               "all_document_str": "...",
+               "llm": {"answer": "...", "generate_time": 2.3}
+             }
+        """
         # 文档格式化
         def format_doc_str(inputs: dict) -> str:
             documents = inputs["retrieval_result"]["documents"]
             return format_documents(documents)
 
-        # 检索阶段
+        # 检索阶段 - 将检索器结果赋值给result["retrieval_result"]
         retrieve = RunnablePassthrough.assign(
             retrieval_result=self.retriever
         ).with_config(run_name="retrieve")
 
-        # 文档格式化阶段
+        # 文档格式化阶段 - 将格式化后的文档字符串赋值给result["all_document_str"]
         format_docs = RunnablePassthrough.assign(
             all_document_str=RunnableLambda(format_doc_str)
         ).with_config(run_name="format_docs")
 
-        # 生成阶段
+        # 生成阶段 - prompt → llm → _strip_think_and_time
         generate = (
             self.prompt.with_config(run_name="prompt")
             | self.llm.with_config(run_name="llm")
             | RunnableLambda(self._strip_think_and_time)
         )
 
-        # 完整RAG链
+        # 完整RAG链 - 将generate链的返回值赋值给result["llm"]
         self.rag_chain = (
             retrieve
             | format_docs
@@ -279,6 +300,6 @@ class SimpleRAG:
             search_config: 新的检索配置
         """
         self.search_config = search_config
-        self.retriever = MedicalRetriever(self.knowledge_base, search_config)
+        self.retriever = KnowledgeRetriever(self.knowledge_base, search_config)
         self._setup_chain()
         logger.info(f"搜索配置已更新")

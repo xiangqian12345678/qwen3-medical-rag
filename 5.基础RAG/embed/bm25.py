@@ -1,11 +1,10 @@
 """BM25稀疏向量处理"""
 import logging
-import math
-from typing import Dict, List, Any
+from typing import Dict, List
+
 from langchain_core.embeddings import Embeddings
 
 from .vocab import Vocabulary
-
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +13,11 @@ class BM25Vectorizer:
     """BM25向量化器"""
 
     def __init__(
-        self,
-        vocab: Vocabulary,
-        domain_model: str = "medicine",
-        k1: float = 1.5,
-        b: float = 0.75
+            self,
+            vocab: Vocabulary,
+            domain_model: str = "medicine",
+            k1: float = 1.5,
+            b: float = 0.75
     ):
         """
         初始化BM25向量化器
