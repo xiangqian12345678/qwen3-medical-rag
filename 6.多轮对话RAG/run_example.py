@@ -2,7 +2,7 @@
 多轮对话RAG功能演示
 """
 import logging
-from config import ConfigLoader
+from config.loader import ConfigLoader
 from multi_dialogue_rag import MultiDialogueRag
 
 logging.basicConfig(level=logging.INFO)

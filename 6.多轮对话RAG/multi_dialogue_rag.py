@@ -14,7 +14,7 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.messages import AIMessage, HumanMessage
 
-from config.models import AppConfig, SearchRequest
+from config.models import AppConfig, SearchRequest, SingleSearchRequest, FusionSpec
 from knowledge_base import KnowledgeBase
 from retriever import KnowledgeRetriever
 from utils import create_llm_client, format_documents, ESTIMATE_FUNCTION_REGISTRY
@@ -64,6 +64,68 @@ class MultiDialogueRag(BasicRAG):
         self._setup_chain()
 
         logger.info("多轮对话 RAG 初始化完成")
+
+    def _create_default_search_config(self) -> SearchRequest:
+        """创建默认检索配置"""
+        # 从配置中读取默认字段配置
+        if self.config.rag.default_fields:
+            requests = [
+                SingleSearchRequest(**f.model_dump())
+                for f in self.config.rag.default_fields
+            ]
+        else:
+            # 默认配置
+            requests = [
+                SingleSearchRequest(
+                    anns_field="chunk_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="parent_chunk_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="questions_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="chunk_sparse",
+                    metric_type="IP",
+                    search_params={"drop_ratio_search": 0.0},
+                    limit=50,
+                    expr=""
+                )
+            ]
+
+        fusion = FusionSpec(
+            method=self.config.rag.fusion.method,
+            k=self.config.rag.fusion.k,
+            weights=list(self.config.rag.fusion.weights.values())
+        )
+
+        output_fields = self.config.rag.output_fields or [
+            "chunk", "parent_chunk", "summary", "questions", "document",
+            "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
+        ]
+
+        return SearchRequest(
+            query="",
+            collection_name=self.config.milvus.collection_name,
+            requests=requests,
+            output_fields=output_fields,
+            fuse=fusion,
+            top_k=self.config.rag.top_k,
+            limit=self.config.rag.limit or 5
+        )
 
     # ---------- 缓存管理 ----------
 

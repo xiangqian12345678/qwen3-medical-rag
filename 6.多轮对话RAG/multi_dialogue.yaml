@@ -90,6 +90,69 @@ data:
   hash_id_field: hash_id # 哈希ID字段
 
 # =============================================================================
+# RAG检索配置
+# =============================================================================
+rag:
+  # 默认检索字段配置
+  default_fields:
+    - anns_field: chunk_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: parent_chunk_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: questions_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: chunk_sparse
+      metric_type: IP
+      search_params: {"drop_ratio_search": 0.0}
+      limit: 50
+      expr: ""
+
+  # 向量融合配置
+  # 用于将多路检索结果进行融合排序,提高检索准确性
+  fusion:
+    # 融合方法,可选值:
+    #   - rrf: Reciprocal Rank Fusion (倒数排名融合),根据各路结果的排名计算综合得分,对极端排名不敏感,稳定性好
+    #   - weighted: 加权融合,根据各路检索结果的原始分数进行加权汇总,适合分数具有可比性的场景
+    method: rrf
+    # RRF方法的参数,用于控制排名倒数的影响强度,值越大对高排名结果越重视,通常取值在50-100之间
+    k: 60
+    # 各检索字段的权重配置,仅在使用加权融合(weighted)时生效
+    # 权重值表示该字段在最终得分中的重要性,所有权重之和应为1.0
+    weights:
+      chunk_dense: 0.40
+      parent_chunk_dense: 0.40
+      questions_dense: 0.15
+      chunk_sparse: 0.05
+
+  # 输出字段
+  output_fields:
+    - chunk
+    - parent_chunk
+    - summary
+    - questions
+    - document
+    - source
+    - source_name
+    - lt_doc_id
+    - chunk_id
+    - hash_id
+
+  # 默认返回数量
+  limit: 5
+
+  # 顶层K值（融合前的各路检索结果数量）
+  top_k: 50
+
+# =============================================================================
 # 多轮对话RAG配置
 # =============================================================================
 multi_dialogue_rag:
