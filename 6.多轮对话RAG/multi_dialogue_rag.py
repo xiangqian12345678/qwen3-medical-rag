@@ -107,11 +107,11 @@ class MultiDialogueRag(BasicRAG):
 
     def _create_default_search_config(self) -> SearchRequest:
         """创建默认检索配置"""
-        # 从配置中读取默认字段配置
-        if self.config.rag.default_fields:
+        # 从配置中读取检索字段配置
+        if self.config.rag.anns_fields:
             requests = [
                 SingleSearchRequest(**f.model_dump())
-                for f in self.config.rag.default_fields
+                for f in self.config.rag.anns_fields
             ]
         else:
             # 默认配置

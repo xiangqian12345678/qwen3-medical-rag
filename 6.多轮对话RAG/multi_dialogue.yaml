@@ -93,7 +93,7 @@ data:
 # =============================================================================
 rag:
   # 默认检索字段配置
-  default_fields:
+  anns_fields:
     - anns_field: chunk_dense
       metric_type: COSINE
       search_params: {"ef": 64}
