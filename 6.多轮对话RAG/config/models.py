@@ -93,6 +93,7 @@ class MultiDialogueRagConfig(BaseModel):
     smith_debug: bool = False
     console_debug: bool = False
     thinking_in_context: bool = False
+    cache_time: int = Field(default=60, ge=0, description="会话历史和摘要缓存超时时间（分钟），0表示不超时")
 
 
 # =============================================================================

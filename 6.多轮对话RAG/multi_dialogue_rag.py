@@ -2,6 +2,7 @@
 import logging
 import re
 import traceback
+import time
 from typing import List, Dict, Any, Optional, Union
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -49,6 +50,8 @@ class MultiDialogueRag(BasicRAG):
         self._histories: Dict[str, ChatMessageHistory] = {}
         self._token_meta_store = {}
         self._running_summaries: Dict[str, str] = {}
+        # 缓存时间戳记录 (session_id -> 最后访问时间)
+        self._cache_timestamps: Dict[str, float] = {}
 
         # 动态生成上下文的变量
         self._system_prompt_text_len = len(get_prompt_template("dialogue_rag")["system"])
@@ -62,6 +65,30 @@ class MultiDialogueRag(BasicRAG):
 
         logger.info("多轮对话 RAG 初始化完成")
 
+    # ---------- 缓存管理 ----------
+
+    def _clean_expired_cache(self):
+        """清理过期的会话历史和摘要缓存"""
+        cache_time_minutes = self.config.multi_dialogue_rag.cache_time
+        if cache_time_minutes == 0:
+            return  # cache_time=0 表示不超时
+
+        current_time = time.time()
+        expire_threshold = cache_time_minutes * 60  # 转换为秒
+
+        expired_sessions = []
+        for session_id, last_access_time in list(self._cache_timestamps.items()):
+            if current_time - last_access_time > expire_threshold:
+                expired_sessions.append(session_id)
+
+        for session_id in expired_sessions:
+            self._histories.pop(session_id, None)
+            self._running_summaries.pop(session_id, None)
+            self._token_meta_store.pop(session_id, None)
+            self._cache_timestamps.pop(session_id, None)
+            if self.config.multi_dialogue_rag.console_debug:
+                logger.info(f"[{session_id}] 会话缓存已过期，已清理")
+
     # ---------- 历史获取器 ----------
 
     def _get_history(self, session_id: str) -> ChatMessageHistory:
@@ -69,6 +96,8 @@ class MultiDialogueRag(BasicRAG):
         if session_id not in self._histories:
             self._histories[session_id] = ChatMessageHistory()
             self._running_summaries[session_id] = ""
+        # 更新缓存时间戳
+        self._cache_timestamps[session_id] = time.time()
         return self._histories[session_id]
 
     def _setup_dialogue_rag_prompt(self) -> ChatPromptTemplate:
@@ -346,6 +375,9 @@ class MultiDialogueRag(BasicRAG):
         """
         logger.info(f"[{session_id}] 问题: {query}")
         try:
+            # 0) 清理过期缓存
+            self._clean_expired_cache()
+
             # 1) 可能压缩旧历史
             self._maybe_compress_history(session_id)
 

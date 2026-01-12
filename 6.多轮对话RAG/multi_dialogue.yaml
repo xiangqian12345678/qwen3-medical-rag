@@ -100,5 +100,6 @@ multi_dialogue_rag:
   smith_debug: false # Smith调试
   console_debug: true # 控制台调试
   thinking_in_context: false # 上下文思考
+  cache_time: 60 # 会话历史和摘要缓存超时时间（分钟），0表示不超时
 
 
