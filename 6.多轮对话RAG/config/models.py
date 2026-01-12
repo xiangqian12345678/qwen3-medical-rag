@@ -73,7 +73,6 @@ class DataConfig(BaseModel):
     parent_chunk_field: str = "parent_chunk"  # 父文本块字段名
     summary_field: str = "summary"  # 摘要字段名
     questions_field: str = "questions"  # 问题字段名
-    document_field: str = "document"  # 文档字段名
     source_field: str = "source"  # 来源字段名
     source_name_field: str = "source_name"  # 来源名称字段名
     lt_doc_id_field: str = "lt_doc_id"  # 长文档ID字段名
@@ -110,7 +109,7 @@ class RAGConfig(BaseModel):
     default_fields: List[FieldSearchRequest] = Field(default_factory=list)  # 默认检索字段列表
     fusion: FusionConfig = Field(default_factory=FusionConfig)  # 融合配置
     output_fields: List[str] = Field(default_factory=lambda: [  # 输出字段列表
-        "chunk", "parent_chunk", "summary", "questions", "document",
+        "chunk", "parent_chunk", "summary", "questions",
         "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
     ])
     limit: int = 5  # 最终返回结果数量
@@ -153,7 +152,7 @@ AnnsField = Literal["chunk_dense", "parent_chunk_dense", "questions_dense", "chu
 
 OutputFields = Literal[
     "pk", "chunk", "parent_chunk", "summary", "questions",
-    "document", "source", "source_name", "lt_doc_id",
+    "source", "source_name", "lt_doc_id",
     "chunk_id", "hash_id"
 ]
 

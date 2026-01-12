@@ -82,7 +82,6 @@ data:
   parent_chunk_field: parent_chunk # 父块字段
   summary_field: summary # 摘要字段
   questions_field: questions # 问题字段
-  document_field: document # 文档字段
   source_field: source # 来源字段
   source_name_field: source_name # 来源名称字段
   lt_doc_id_field: lt_doc_id # 长文档ID字段

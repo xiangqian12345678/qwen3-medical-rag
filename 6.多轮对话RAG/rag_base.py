@@ -42,7 +42,7 @@ class BasicRAG(ABC):
                 query="",
                 collection_name=config.milvus.collection_name,
                 requests=[ssr1, ssr2],
-                output_fields=["chunk", "parent_chunk", "summary", "questions", "document",
+                output_fields=["chunk", "parent_chunk", "summary", "questions",
                              "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"],
                 fuse=fuse,
                 top_k=50,

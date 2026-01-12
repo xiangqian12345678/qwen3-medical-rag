@@ -222,7 +222,6 @@ class KnowledgeBase:
                     "parent_chunk": entity.get(self.data_config.parent_chunk_field, ""),
                     "summary": entity.get(self.data_config.summary_field, ""),
                     "questions": entity.get(self.data_config.questions_field, ""),
-                    "document": entity.get(self.data_config.document_field, ""),
                     "source": entity.get(self.data_config.source_field, ""),
                     "source_name": entity.get(self.data_config.source_name_field, ""),
                     "lt_doc_id": entity.get(self.data_config.lt_doc_id_field, ""),

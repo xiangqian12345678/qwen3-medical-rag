@@ -77,7 +77,6 @@ def format_documents(documents: List[Any]) -> str:
                     "parent_chunk": "更长的父块内容...",
                     "summary": "摘要内容...",
                     "questions": "相关问题...",
-                    "document": "文档标题...",
                     "source": "来源...",
                     "source_name": "来源名称...",
                     "lt_doc_id": "doc_123",

@@ -90,7 +90,6 @@ data:
   parent_chunk_field: parent_chunk
   summary_field: summary
   questions_field: questions
-  document_field: document
   source_field: source
   source_name_field: source_name
   lt_doc_id_field: lt_doc_id

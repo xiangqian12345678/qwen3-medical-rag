@@ -115,7 +115,7 @@ class SimpleRAG:
         )
 
         output_fields = self.config.rag.output_fields or [
-            "chunk", "parent_chunk", "summary", "questions", "document",
+            "chunk", "parent_chunk", "summary", "questions",
             "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
         ]
 
