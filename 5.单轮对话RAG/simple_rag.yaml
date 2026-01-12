@@ -95,11 +95,6 @@ data:
   lt_doc_id_field: lt_doc_id
   chunk_id_field: chunk_id
   hash_id_field: hash_id
-  default_source: qa
-  default_source_name: huatuo
-  default_lt_doc_id: ''
-  default_chunk_id: -1
-  default_hash_id: ''
 
 # =============================================================================
 # 基础RAG检索配置
