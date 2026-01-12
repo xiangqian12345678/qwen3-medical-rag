@@ -1,0 +1,112 @@
+# =============================================================================
+# 多轮对话RAG配置文件
+# =============================================================================
+
+# =============================================================================
+# Milvus 配置
+# =============================================================================
+milvus:
+  uri: http://localhost:19530 # Milvus服务地址
+  token: null # 认证令牌
+  collection_name: medical_knowledge # 集合名称
+  drop_old: false # 是否删除旧集合
+  auto_id: false # 是否自动生成ID
+
+# =============================================================================
+# 稠密向量字段配置
+# =============================================================================
+dense_fields:
+  chunk:
+    provider: ollama # 提供商
+    model: bge-m3:latest # 模型名称
+    base_url: http://localhost:11434 # 服务地址
+    dimension: 1024 # 向量维度
+    index_field: chunk_dense # 索引字段名
+    index_type: HNSW # 索引类型
+    search_params:
+      ef: 64 # 检索参数
+    metric_type: COSINE # 距离度量类型
+  parent_chunk:
+    provider: ollama # 提供商
+    model: bge-m3:latest # 模型名称
+    base_url: http://localhost:11434 # 服务地址
+    dimension: 1024 # 向量维度
+    index_field: parent_chunk_dense # 索引字段名
+    index_type: HNSW # 索引类型
+    search_params:
+      ef: 64 # 检索参数
+    metric_type: COSINE # 距离度量类型
+  questions:
+    provider: ollama # 提供商
+    model: bge-m3:latest # 模型名称
+    base_url: http://localhost:11434 # 服务地址
+    dimension: 1024 # 向量维度
+    index_field: questions_dense # 索引字段名
+    index_type: HNSW # 索引类型
+    search_params:
+      ef: 64 # 检索参数
+    metric_type: COSINE # 距离度量类型
+
+# =============================================================================
+# 稀疏向量字段配置
+# =============================================================================
+sparse_fields:
+  chunk:
+    provider: self # 自定义
+    vocab_path_or_name: ../output/vocab/vocab.pkl.gz # 词表路径
+    algorithm: BM25 # 稀疏检索算法
+    domain_model: medicine # 领域模型
+    k1: 1.5 # BM25参数k1
+    b: 0.75 # BM25参数b
+    index_field: chunk_sparse # 索引字段名
+    index_type: SPARSE_INVERTED_INDEX # 索引类型
+    search_params:
+      drop_ratio_search: 0.0 # 检索参数
+    metric_type: IP # 距离度量类型
+
+# =============================================================================
+# LLM 配置
+# =============================================================================
+llm:
+  provider: ollama # 提供商
+  model: qwen3:4b # 模型名称
+  base_url: http://localhost:11434 # 服务地址
+  temperature: 0.1 # 温度参数
+  max_tokens: null # 最大token数
+
+# =============================================================================
+# 数据字段配置
+# =============================================================================
+data:
+  chunk_field: chunk # 块字段
+  parent_chunk_field: parent_chunk # 父块字段
+  summary_field: summary # 摘要字段
+  questions_field: questions # 问题字段
+  document_field: document # 文档字段
+  source_field: source # 来源字段
+  source_name_field: source_name # 来源名称字段
+  lt_doc_id_field: lt_doc_id # 长文档ID字段
+  chunk_id_field: chunk_id # 块ID字段
+  hash_id_field: hash_id # 哈希ID字段
+
+# =============================================================================
+# 多轮对话RAG配置
+# =============================================================================
+multi_dialogue_rag:
+  estimate_token_fun: avg # token估算方式
+  llm_max_token: 1024 # LLM最大token
+  cut_dialogue_scale: 2 # 对话截断比例
+  max_token_threshold: 1.01 # 最大token阈值
+  smith_debug: false # Smith调试
+  console_debug: true # 控制台调试
+  thinking_in_context: false # 上下文思考
+
+# =============================================================================
+# Agent对话配置
+# =============================================================================
+agent:
+  mode: analysis # 代理模式
+  max_attempts: 2 # 最大尝试次数
+  network_search_enabled: false # 网络搜索开关
+  network_search_cnt: 10 # 网络搜索数量
+  auto_search_param: true # 自动搜索参数
