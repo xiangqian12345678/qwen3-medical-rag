@@ -1,0 +1,74 @@
+# =============================================================================
+# 单轮对话代理配置文件
+# =============================================================================
+
+# =============================================================================
+# Milvus 配置
+# =============================================================================
+milvus:
+  uri: http://localhost:19530
+  token: null
+  collection_name: medical_knowledge
+  drop_old: false
+  auto_id: false
+
+# =============================================================================
+# 嵌入配置（多向量）
+# =============================================================================
+embedding:
+  summary_dense:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+  text_dense:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+  text_sparse:
+    provider: self
+    vocab_path_or_name: ../output/vocab/vocab.pkl.gz
+    algorithm: BM25
+    domain_model: medicine
+    k1: 1.5
+    b: 0.75
+    build:
+      workers: 8
+      chunksize: 64
+
+# =============================================================================
+# LLM 配置
+# =============================================================================
+llm:
+  provider: ollama
+  model: qwen3:4b
+  base_url: http://localhost:11434
+  temperature: 0.1
+  max_tokens: null
+
+# =============================================================================
+# 数据配置
+# =============================================================================
+data:
+  summary_field: question
+  document_field: answer
+  source_field: null
+  source_name_field: null
+  lt_doc_id_field: null
+  chunk_id_field: null
+  default_source: qa
+  default_source_name: huatuo
+  default_lt_doc_id: ''
+  default_chunk_id: -1
+
+# =============================================================================
+# Agent 配置
+# =============================================================================
+agent:
+  mode: analysis  # analysis: 分析模式(带重试), fast: 快速模式, normal: 普通模式
+  max_attempts: 2  # 最大重试次数
+  network_search_enabled: false  # 是否启用联网搜索
+  network_search_cnt: 10  # 联网搜索返回数量
+  auto_search_param: true  # 是否自动确定搜索参数
+  console_debug: true  # 是否输出调试日志
