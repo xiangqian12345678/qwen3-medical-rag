@@ -6,7 +6,7 @@
 from .config import ConfigLoader
 from .knowledge_base import KnowledgeBase
 from .retriever import KnowledgeRetriever
-from .rag import SimpleRAG
+from .single_dialogue_rag import SimpleRAG
 
 __all__ = [
     "ConfigLoader",

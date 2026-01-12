@@ -1,6 +1,6 @@
 """基础RAG示例"""
 import logging
-from rag import SimpleRAG
+from single_dialogue_rag import SimpleRAG
 from config.loader import ConfigLoader
 
 logging.basicConfig(level=logging.INFO)
