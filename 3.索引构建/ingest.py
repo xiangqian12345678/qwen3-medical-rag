@@ -146,7 +146,7 @@ def create_sample_documents(count: int = 10) -> List[Document]:
         source = "示例数据"
         source_name = "sample"
         lt_doc_id = f"doc_{i // 3}"
-        hash_id = hashlib.md5(chunk.encode()).hexdigest()
+        hash_id = hashlib.md5(chunk.encode('utf-8')).hexdigest()
 
         metadata = {
             "chunk": chunk,

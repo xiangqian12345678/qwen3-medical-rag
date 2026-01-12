@@ -153,7 +153,7 @@ class DocumentVectorizer:
         # 优先使用已有的 hash_id，如果没有则重新计算
         origin_pk = doc_dict.get("hash_id", "")
         if not origin_pk:
-            origin_pk = self._compute_hash_id(document)
+            origin_pk = hashlib.md5(chunk.encode('utf-8')).hexdigest()
 
         rows = []
 
@@ -397,20 +397,6 @@ class DocumentVectorizer:
                 row[field_config.index_field] = {}
 
         return row
-
-    @staticmethod
-    def _compute_hash_id(document: Document) -> str:
-        """计算文档哈希ID（简单实现）
-
-        Args:
-            document: 文档对象
-
-        Returns:
-            str: 哈希ID
-        """
-        import hashlib
-        content = document.page_content + str(sorted(document.metadata.items()))
-        return hashlib.md5(content.encode()).hexdigest()
 
     def vectorize_documents_batch(self, documents: List[Document]) -> List[Dict[str, Any]]:
         """批量向量化文档

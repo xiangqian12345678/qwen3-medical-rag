@@ -111,12 +111,19 @@ class AnnotationDataLoader:
             document = f"document_{chunk_id // 100}" if chunk_id else "document_0"
 
             # 计算哈希 ID
+            # 主要作用：
+            # 1.构建唯一主键 pk
+            # 2.在多向量展开场景中作为 origin_pk 追踪原始文档
+            #   origin_pk = doc_dict.get("hash_id", "")
+            #   if not origin_pk:
+            #       origin_pk = self._compute_hash_id(document)
+            # 3.保存为元数据供查询使用
             hash_id = hashlib.md5(chunk.encode('utf-8')).hexdigest()
 
             # 构建 lt_doc_id（同一文档的 chunks 共享相同的 lt_doc_id）
             lt_doc_id = f"lt_doc_{chunk_id // 10}" if chunk_id else "lt_doc_0"
 
-            # 构建 pk（主键）
+            # 构建 pk（主键） 唯一标识：每个文档块有唯一的 pk ，避免重复插
             pk = f"{hash_id[:16]}_{chunk_id}"
 
             metadata = {
@@ -158,11 +165,11 @@ class IndexBuilder:
         self.ingestor = DataIngestor(self.kb)
 
     def build_index(
-        self,
-        data_dir: str = "../output/annotation",
-        file_pattern: str = "*.jsonl",
-        init_kb: bool = True,
-        batch_size: int = 100
+            self,
+            data_dir: str = "../output/annotation",
+            file_pattern: str = "*.jsonl",
+            init_kb: bool = True,
+            batch_size: int = 100
     ):
         """构建索引
 
