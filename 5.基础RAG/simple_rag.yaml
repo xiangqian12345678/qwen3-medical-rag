@@ -1,0 +1,159 @@
+# =============================================================================
+# 基础RAG配置文件
+# =============================================================================
+
+# =============================================================================
+# Milvus 配置
+# =============================================================================
+milvus:
+  uri: http://localhost:19530
+  token: null
+  collection_name: medical_knowledge
+  drop_old: false
+  auto_id: false
+
+# =============================================================================
+# 稠密向量字段配置
+# =============================================================================
+dense_fields:
+  chunk:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+    index_field: chunk_dense
+    index_type: HNSW
+    search_params: {"ef": 64}
+    metric_type: COSINE
+  parent_chunk:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+    index_field: parent_chunk_dense
+    index_type: HNSW
+    search_params: {"ef": 64}
+    metric_type: COSINE
+  summary:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+    index_field: summary_dense
+    index_type: HNSW
+    search_params: {"ef": 64}
+    metric_type: COSINE
+  questions:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+    index_field: questions_dense
+    index_type: HNSW
+    search_params: {"ef": 64}
+    metric_type: COSINE
+
+# =============================================================================
+# 稀疏向量字段配置
+# =============================================================================
+sparse_fields:
+  chunk:
+    provider: self
+    vocab_path_or_name: ../output/vocab/vocab.pkl.gz
+    algorithm: BM25
+    domain_model: medicine
+    k1: 1.5
+    b: 0.75
+    build:
+      workers: 8
+      chunksize: 64
+    index_field: chunk_sparse
+    index_type: SPARSE_INVERTED_INDEX
+    index_params: {"inverted_index_algo": "DAAT_MAXSCORE"}
+    metric_type: IP
+
+# =============================================================================
+# LLM 配置
+# =============================================================================
+llm:
+  provider: ollama
+  model: qwen3:4b
+  base_url: http://localhost:11434
+  temperature: 0.1
+  max_tokens: null
+
+# =============================================================================
+# 数据配置
+# =============================================================================
+data:
+  chunk_field: chunk
+  parent_chunk_field: parent_chunk
+  summary_field: summary
+  questions_field: questions
+  document_field: document
+  source_field: source
+  source_name_field: source_name
+  lt_doc_id_field: lt_doc_id
+  chunk_id_field: chunk_id
+  hash_id_field: hash_id
+  default_source: qa
+  default_source_name: huatuo
+  default_lt_doc_id: ''
+  default_chunk_id: -1
+  default_hash_id: ''
+
+# =============================================================================
+# 基础RAG检索配置
+# =============================================================================
+rag:
+  # 默认检索字段配置
+  default_fields:
+    - anns_field: chunk_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: parent_chunk_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: questions_dense
+      metric_type: COSINE
+      search_params: {"ef": 64}
+      limit: 50
+      expr: ""
+    - anns_field: chunk_sparse
+      metric_type: IP
+      search_params: {"drop_ratio_search": 0.0}
+      limit: 50
+      expr: ""
+
+  # 向量融合配置
+  fusion:
+    method: rrf
+    k: 60
+    weights:
+      chunk_dense: 0.40
+      parent_chunk_dense: 0.40
+      questions_dense: 0.15
+      chunk_sparse: 0.05
+
+  # 输出字段
+  output_fields:
+    - chunk
+    - parent_chunk
+    - summary
+    - questions
+    - document
+    - source
+    - source_name
+    - lt_doc_id
+    - chunk_id
+    - hash_id
+
+  # 默认返回数量
+  limit: 5
+
+  # 顶层K值（融合前的各路检索结果数量）
+  top_k: 50

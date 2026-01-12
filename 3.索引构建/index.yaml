@@ -74,7 +74,7 @@ dense_fields:
   # 注意：Milvus 限制一个集合最多 4 个向量字段，已达到上限
   # summary 字段配置为不向量化，仅作为文本存储用于检索结果展示
   summary:
-    embed: false                   # 是否对该字段进行向量化（禁用以符合 Milvus 限制）
+    embed: true                   # 是否对该字段进行向量化（禁用以符合 Milvus 限制）
     type: str                      # 字段类型
     dimension: 1024                # 向量维度
     model: bge-m3:latest           # 向量化模型名称

@@ -25,7 +25,7 @@
 ├── insert.py                # 数据插入工具
 ├── knowledge_base.py        # 知识库主类
 ├── ingest.py                # 数据导入工具
-├── index.py                 # 索引构建脚本
+├── build_index.py                 # 索引构建脚本
 ├── test_index.py            # 测试脚本
 └── index.yaml               # 索引配置文件
 ```
@@ -294,7 +294,7 @@ fusion:
 
 ```bash
 # 构建完整索引
-python index.py
+python build_index.py
 ```
 
 ## 测试
