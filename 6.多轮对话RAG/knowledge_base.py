@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from langchain_core.documents import Document
 from pymilvus import MilvusClient, AnnSearchRequest, RRFRanker, WeightedRanker
 
-from config.models import AppConfig, SearchRequest, SingleSearchRequest
+from config.models import AppConfig, SearchRequest, SingleSearchRequest, OutputFields
 from utils import create_embedding_client
 from embed import Vocabulary, BM25Vectorizer, BM25SparseEmbedding
 
@@ -106,7 +106,7 @@ class KnowledgeBase:
             self,
             query: str,
             single_request: SingleSearchRequest,
-            output_fields: List[str]
+            output_fields: List[OutputFields]
     ) -> List[Dict]:
         """
         单路检索

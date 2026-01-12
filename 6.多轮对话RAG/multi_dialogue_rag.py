@@ -317,7 +317,8 @@ class MultiDialogueRag(BasicRAG):
         if len(self._summary_cache_list[session_id]) > max_cache_count:
             # 只保留最近的N次摘要
             if self.config.multi_dialogue_rag.console_debug:
-                logger.info(f"[{session_id}] 摘要缓存数量({len(self._summary_cache_list[session_id])})超过限制({max_cache_count})，保留最近的{max_cache_count}次摘要")
+                logger.info(
+                    f"[{session_id}] 摘要缓存数量({len(self._summary_cache_list[session_id])})超过限制({max_cache_count})，保留最近的{max_cache_count}次摘要")
             self._summary_cache_list[session_id] = self._summary_cache_list[session_id][-max_cache_count:]
 
         # 合并所有缓存的摘要

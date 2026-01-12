@@ -180,7 +180,7 @@ class SearchRequest(BaseModel):
     query: str = ""  # 查询文本
     collection_name: str = "medical_knowledge"  # 集合名称
     requests: List[SingleSearchRequest] = Field(default_factory=list)  # 检索请求列表
-    output_fields: List[OutputFields] = Field(default_factory=list)  # 输出字段列表
+    output_fields: List[str] = Field(default_factory=list)  # 输出字段列表
     fuse: Optional[FusionSpec] = Field(default_factory=FusionSpec)  # 融合规范
     top_k: int = 50  # 检索返回数
     limit: int = 5  # 最终返回数
