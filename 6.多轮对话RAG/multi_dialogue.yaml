@@ -101,12 +101,4 @@ multi_dialogue_rag:
   console_debug: true # 控制台调试
   thinking_in_context: false # 上下文思考
 
-# =============================================================================
-# Agent对话配置
-# =============================================================================
-agent:
-  mode: analysis # 代理模式
-  max_attempts: 2 # 最大尝试次数
-  network_search_enabled: false # 网络搜索开关
-  network_search_cnt: 10 # 网络搜索数量
-  auto_search_param: true # 自动搜索参数
+

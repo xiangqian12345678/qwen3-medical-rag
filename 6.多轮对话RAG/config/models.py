@@ -96,18 +96,6 @@ class MultiDialogueRagConfig(BaseModel):
 
 
 # =============================================================================
-# Agent配置
-# =============================================================================
-class AgentConfig(BaseModel):
-    """Agent配置"""
-    mode: Literal["analysis", "fast", "normal"] = "analysis"
-    max_attempts: int = 3
-    network_search_enabled: bool = True
-    network_search_cnt: int = 10
-    auto_search_param: bool = True
-
-
-# =============================================================================
 # 主配置
 # =============================================================================
 class AppConfig(BaseModel):
@@ -118,7 +106,6 @@ class AppConfig(BaseModel):
     llm: LLMConfig
     data: DataConfig = Field(default_factory=DataConfig)
     multi_dialogue_rag: MultiDialogueRagConfig
-    agent: AgentConfig
 
 
 # =============================================================================
