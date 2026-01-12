@@ -15,7 +15,6 @@ from retriever import KnowledgeRetriever
 from utils import create_llm_client, format_documents
 from prompts import get_prompt_template
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,10 +22,10 @@ class SimpleRAG:
     """基础医疗RAG系统"""
 
     def __init__(
-        self,
-        config: Optional[AppConfig] = None,
-        config_path: Optional[str] = None,
-        search_config: Optional[SearchRequest] = None
+            self,
+            config: Optional[AppConfig] = None,
+            config_path: Optional[str] = None,
+            search_config: Optional[SearchRequest] = None
     ):
         """
         初始化RAG系统
@@ -69,11 +68,11 @@ class SimpleRAG:
 
     def _create_default_search_config(self) -> SearchRequest:
         """创建默认检索配置"""
-        # 从配置中读取默认字段配置
-        if self.config.rag.default_fields:
+        # 从配置中读取检索字段配置
+        if self.config.rag.anns_fields:
             requests = [
                 SingleSearchRequest(**f.model_dump())
-                for f in self.config.rag.default_fields
+                for f in self.config.rag.anns_fields
             ]
         else:
             # 默认配置（根据simple_rag.yaml中的默认字段）
@@ -194,6 +193,7 @@ class SimpleRAG:
                "llm": {"answer": "...", "generate_time": 2.3}
              }
         """
+
         # 文档格式化
         def format_doc_str(inputs: dict) -> str:
             documents = inputs["retrieval_result"]["documents"]
@@ -211,24 +211,24 @@ class SimpleRAG:
 
         # 生成阶段 - prompt → llm → _strip_think_and_time
         generate = (
-            self.prompt.with_config(run_name="prompt")
-            | self.llm.with_config(run_name="llm")
-            | RunnableLambda(self._strip_think_and_time)
+                self.prompt.with_config(run_name="prompt")
+                | self.llm.with_config(run_name="llm")
+                | RunnableLambda(self._strip_think_and_time)
         )
 
         # 完整RAG链 - 将generate链的返回值赋值给result["llm"]
         self.rag_chain = (
-            retrieve
-            | format_docs
-            | RunnablePassthrough.assign(llm=generate)
+                retrieve
+                | format_docs
+                | RunnablePassthrough.assign(llm=generate)
         ).with_config(run_name="rag")
 
         logger.info("RAG链构建完成")
 
     def answer(
-        self,
-        query: str,
-        return_document: bool = False
+            self,
+            query: str,
+            return_document: bool = False
     ) -> Dict[str, Union[str, List[Document], float]]:
         """
         回答用户问题
@@ -276,9 +276,9 @@ class SimpleRAG:
             return {"answer": error_msg}
 
     def batch_answer(
-        self,
-        queries: List[str],
-        return_document: bool = False
+            self,
+            queries: List[str],
+            return_document: bool = False
     ) -> List[Dict[str, Union[str, List[Document], float]]]:
         """
         批量回答问题

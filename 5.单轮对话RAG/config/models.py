@@ -133,7 +133,7 @@ class FusionConfig(BaseModel):
 
 class RAGConfig(BaseModel):
     """基础RAG检索配置，用于配置检索增强生成的检索和融合参数"""
-    default_fields: List[FieldSearchRequest] = Field(default_factory=list)  # 默认检索字段列表
+    anns_fields: List[FieldSearchRequest] = Field(default_factory=list)  # 默认检索字段列表
     fusion: FusionConfig = Field(default_factory=FusionConfig)  # 融合配置
     output_fields: List[str] = Field(default_factory=lambda: [  # 输出字段列表
         "chunk", "parent_chunk", "summary", "questions",
