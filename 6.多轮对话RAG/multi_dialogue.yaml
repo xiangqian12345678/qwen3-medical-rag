@@ -163,5 +163,7 @@ multi_dialogue_rag:
   console_debug: true # 控制台调试
   thinking_in_context: false # 上下文思考
   cache_time: 60 # 会话历史和摘要缓存超时时间（分钟），0表示不超时
+  summary_max_length: 500 # 每次摘要生成的最大字符长度，用于控制LLM生成摘要的长度
+  summary_max_cache_count: 3 # 缓存的摘要迭代次数上限，超过后只保留最近N次的摘要
 
 

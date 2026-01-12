@@ -17,31 +17,48 @@ class BasicRAG(ABC):
         self.config = config
 
         if not search_config:
-            # 默认检索配置 - 使用 chunk_dense 和 chunk_sparse 混合检索
+            # 默认检索配置 - 使用四路混合检索
             from config.models import SingleSearchRequest, FusionSpec
 
-            ssr1 = SingleSearchRequest(
-                anns_field="chunk_dense",
-                metric_type="COSINE",
-                search_params={"ef": 64},
-                limit=50,
-                expr=""
-            )
-            ssr2 = SingleSearchRequest(
-                anns_field="chunk_sparse",
-                metric_type="IP",
-                search_params={"drop_ratio_search": 0.0},
-                limit=50,
-                expr=""
-            )
+            requests = [
+                SingleSearchRequest(
+                    anns_field="chunk_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="parent_chunk_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="questions_dense",
+                    metric_type="COSINE",
+                    search_params={"ef": 64},
+                    limit=50,
+                    expr=""
+                ),
+                SingleSearchRequest(
+                    anns_field="chunk_sparse",
+                    metric_type="IP",
+                    search_params={"drop_ratio_search": 0.0},
+                    limit=50,
+                    expr=""
+                )
+            ]
             fuse = FusionSpec(
-                method="weighted",
-                weights=[0.8, 0.2]
+                method="rrf",
+                k=60,
+                weights=[0.40, 0.40, 0.15, 0.05]
             )
             self.search_config = SearchRequest(
                 query="",
                 collection_name=config.milvus.collection_name,
-                requests=[ssr1, ssr2],
+                requests=requests,
                 output_fields=["chunk", "parent_chunk", "summary", "questions",
                              "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"],
                 fuse=fuse,

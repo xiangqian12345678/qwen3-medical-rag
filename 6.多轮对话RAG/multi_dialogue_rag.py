@@ -1,25 +1,23 @@
 """多轮对话RAG实现"""
 import logging
 import re
-import traceback
 import time
-from typing import List, Dict, Any, Optional, Union
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.documents import Document
-from langchain_core.runnables import (
-    RunnablePassthrough, RunnableLambda
-)
+import traceback
+from typing import List, Dict, Union
+
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables.history import RunnableWithMessageHistory
 
 from config.models import AppConfig, SearchRequest, SingleSearchRequest, FusionSpec
 from knowledge_base import KnowledgeBase
-from retriever import KnowledgeRetriever
-from utils import create_llm_client, format_documents, ESTIMATE_FUNCTION_REGISTRY
 from prompts import get_prompt_template
 from rag_base import BasicRAG
+from retriever import KnowledgeRetriever
+from utils import create_llm_client, ESTIMATE_FUNCTION_REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +44,53 @@ class MultiDialogueRag(BasicRAG):
         self.retriever = KnowledgeRetriever(self.knowledge_base, self.search_config)
         self.llm = create_llm_client(config.llm)
 
-        # 会话存储 & 摘要存储
+        # ========== 会话存储 & 摘要存储 ==========
+        # 存储各会话的对话历史消息对象
+        # 类型: Dict[str, ChatMessageHistory]
+        # 示例: {
+        #     "session_001": ChatMessageHistory(messages=[
+        #         HumanMessage(content="高血压有什么症状？"),
+        #         AIMessage(content="高血压的常见症状包括...")
+        #     ]),
+        #     "session_002": ChatMessageHistory(messages=[...])
+        # }
         self._histories: Dict[str, ChatMessageHistory] = {}
+
+        # 存储各会话的历史消息字符长度与实际token数统计，用于计算token估算比率
+        # 类型: Dict[str, Dict[str, List[int]]]
+        # 示例: {
+        #     "session_001": {
+        #         "msg_len": [15, 50, 20, 80],           # 每条消息的字符长度
+        #         "msg_token_len": [5, 18, 7, 28]        # 每条消息实际消耗的token数
+        #     }
+        # }
         self._token_meta_store = {}
+
+        # 存储各会话的对话摘要（历史压缩后生成的摘要文本）
+        # 每次触发历史压缩时：
+        #   将新摘要 summary 与已有摘要 prev 合并
+        #   更新为一条累积的摘要字符串
+        # 类型: Dict[str, str]
+        # 示例: {
+        #     "session_001": "用户询问了高血压的症状和饮食建议，医生解释了高血压的常见表现...",
+        #     "session_002": "用户咨询了糖尿病的治疗方案..."
+        # }
         self._running_summaries: Dict[str, str] = {}
-        # 缓存时间戳记录 (session_id -> 最后访问时间)
+
+        # 存储各会话的摘要列表，用于控制缓存数量
+        # 类型: Dict[str, List[str]]
+        # 示例: {
+        #     "session_001": ["第一次摘要...", "第二次摘要...", "第三次摘要..."],
+        #     "session_002": ["第一次摘要..."]
+        # }
+        self._summary_cache_list: Dict[str, List[str]] = {}
+
+        # 缓存时间戳记录，用于会话过期清理
+        # 类型: Dict[str, float]
+        # 示例: {
+        #     "session_001": 1736612400.123,  # 最后访问时间戳（秒）
+        #     "session_002": 1736612500.456
+        # }
         self._cache_timestamps: Dict[str, float] = {}
 
         # 动态生成上下文的变量
@@ -146,6 +186,7 @@ class MultiDialogueRag(BasicRAG):
         for session_id in expired_sessions:
             self._histories.pop(session_id, None)
             self._running_summaries.pop(session_id, None)
+            self._summary_cache_list.pop(session_id, None)
             self._token_meta_store.pop(session_id, None)
             self._cache_timestamps.pop(session_id, None)
             if self.config.multi_dialogue_rag.console_debug:
@@ -158,6 +199,7 @@ class MultiDialogueRag(BasicRAG):
         if session_id not in self._histories:
             self._histories[session_id] = ChatMessageHistory()
             self._running_summaries[session_id] = ""
+            self._summary_cache_list[session_id] = []
         # 更新缓存时间戳
         self._cache_timestamps[session_id] = time.time()
         return self._histories[session_id]
@@ -236,29 +278,69 @@ class MultiDialogueRag(BasicRAG):
         n = len(hist.messages) - keep_count
         old_msgs = hist.messages[:n]
 
+        # 构建摘要提示词，包含长度限制
+        summary_prompt_template = get_prompt_template("summary")
+        summary_system = summary_prompt_template["system"]
+        summary_user = summary_prompt_template["user"]
+
+        # 在用户提示词中添加长度限制
+        max_length = self.config.multi_dialogue_rag.summary_max_length
+        summary_user_with_limit = f"{summary_user}\n\n请确保摘要内容简洁，控制在{max_length}字符以内。"
+
         summarize_prompt = ChatPromptTemplate.from_messages([
-            ("system", get_prompt_template("summary")["system"]),
+            ("system", summary_system),
             MessagesPlaceholder("history"),
-            ("human", get_prompt_template("summary")["user"])
+            ("human", summary_user_with_limit)
         ])
         summary_result: AIMessage = (summarize_prompt | self.llm).invoke({"history": old_msgs})
 
+        # 截断摘要到指定长度
         summary = re.sub(r"<\|.*?\|>\s*", "", summary_result.content, flags=re.DOTALL).strip()
+        if len(summary) > max_length:
+            summary = summary[:max_length] + "..."
+
         dur = summary_result.response_metadata.get("total_duration", 0) / 1e9
         tokens = summary_result.usage_metadata["total_tokens"]
 
         if self.config.multi_dialogue_rag.console_debug:
             logger.warning(f"[{session_id}] 摘要生成完毕，耗时：{dur} s，使用tokens：{tokens}\n摘要文本：\n{summary}")
 
-        prev = self._running_summaries.get(session_id, "")
-        merged = (prev + "\n" + summary).strip() if prev else summary
-        self._running_summaries[session_id] = merged
+        # 管理摘要缓存列表
+        if session_id not in self._summary_cache_list:
+            self._summary_cache_list[session_id] = []
+
+        # 添加新摘要到缓存列表
+        self._summary_cache_list[session_id].append(summary)
+
+        # 检查是否超过缓存数量限制
+        max_cache_count = self.config.multi_dialogue_rag.summary_max_cache_count
+        if len(self._summary_cache_list[session_id]) > max_cache_count:
+            # 只保留最近的N次摘要
+            if self.config.multi_dialogue_rag.console_debug:
+                logger.info(f"[{session_id}] 摘要缓存数量({len(self._summary_cache_list[session_id])})超过限制({max_cache_count})，保留最近的{max_cache_count}次摘要")
+            self._summary_cache_list[session_id] = self._summary_cache_list[session_id][-max_cache_count:]
+
+        # 合并所有缓存的摘要
+        merged_summary = "\n".join(self._summary_cache_list[session_id])
+        self._running_summaries[session_id] = merged_summary
 
         hist.messages = hist.messages[n:]
 
     @staticmethod
     def _strip_think_get_tokens(msg: AIMessage):
-        """处理LLM返回消息，移除思考标签并提取token统计信息"""
+        """
+        处理LLM返回消息，移除思考标签并提取token统计信息
+
+        Args:
+            msg: LLM返回的AI消息对象
+
+        Returns:
+            包含处理后的消息内容、消息长度、token数、生成时间的字典
+
+        Notes:
+            - usage_metadata["output_tokens"]: LangChain自动从LLM响应中提取的输出token数
+            - response_metadata["total_duration"]: LangChain自动从LLM响应中提取的总耗时（纳秒）
+        """
         text = msg.content
         msg_len = len(msg.content)
         msg_token_len = msg.usage_metadata["output_tokens"]
@@ -368,14 +450,100 @@ class MultiDialogueRag(BasicRAG):
                 | RunnableLambda(self._strip_think_get_tokens)
         )
 
-        # 核心链
+        # ========== 核心处理链 ==========
+        # core_chain 构建了完整的多轮对话RAG处理流水线
+        # 数据流向: 用户输入 -> 查询改写 -> 文档检索 -> 答案生成 -> 输出提取
+
+        # ---------- 第一步: 查询改写 ----------
+        # 功能: 基于对话历史，将用户原始问题改写为更完整、上下文清晰的独立查询
+        # 输入格式: {"original_input": str, "running_summary": str, "session_id": str, "history": List[Message]}
+        # 输出格式: {
+        #     "original_input": str,           # 原始用户问题
+        #     "running_summary": str,          # 历史对话摘要
+        #     "session_id": str,               # 会话ID
+        #     "history": List[Message],        # 对话历史消息列表
+        #     "llm_rewritten_query": {        # 新增字段：改写后的查询结果
+        #         "msg": str,                   # 改写后的查询文本
+        #         "msg_len": int,               # 查询文本字符长度
+        #         "msg_token_len": int,        # 改写消耗的token数
+        #         "generate_time": float        # 改写耗时(秒)
+        #     }
+        # }
         core_chain = (
                 RunnablePassthrough.assign(llm_rewritten_query=rewritten_query_chain)
                 .with_config(run_name="rewritten_query")
+
+                # ---------- 第二步: 文档检索 ----------
+                # 功能: 使用改写后的问题从知识库中检索相关文档
+                # 输入格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...}
+                # }
+                # 输出格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...},
+                #     "milvus_result": {                 # 新增字段：检索结果
+                #         "documents": List[Document],   # 检索到的文档列表
+                #         "search_time": float           # 检索耗时(秒)
+                #     }
+                # }
                 | RunnablePassthrough.assign(milvus_result=RunnableLambda(do_retrieve))
                 .with_config(run_name="search_documents")
+
+                # ---------- 第三步: 答案生成 ----------
+                # 功能: 基于改写查询、检索文档和对话历史，生成最终答案
+                # 输入格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...},
+                #     "milvus_result": {...}
+                # }
+                # 输出格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...},
+                #     "milvus_result": {...},
+                #     "llm_out_result": {                # 新增字段：LLM生成的结果
+                #         "msg": str,                     # 生成的答案文本
+                #         "msg_len": int,                 # 答案字符长度
+                #         "msg_token_len": int,          # 生成消耗的token数
+                #         "generate_time": float          # 生成耗时(秒)
+                #     }
+                # }
                 | RunnablePassthrough.assign(llm_out_result=out_answer)
                 .with_config(run_name="generate")
+
+                # ---------- 第四步: 提取最终答案 ----------
+                # 功能: 将llm_out_result中的答案提取到顶层，方便最终输出
+                # 输入格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...},
+                #     "milvus_result": {...},
+                #     "llm_out_result": {...}
+                # }
+                # 输出格式: {
+                #     "original_input": str,
+                #     "running_summary": str,
+                #     "session_id": str,
+                #     "history": List[Message],
+                #     "llm_rewritten_query": {...},
+                #     "milvus_result": {...},
+                #     "llm_out_result": {...},
+                #     "answer": str                       # 新增字段：最终答案(从llm_out_result.msg提取)
+                # }
                 | RunnableLambda(lambda x: {**x, "answer": x["llm_out_result"]["msg"]})
         )
 

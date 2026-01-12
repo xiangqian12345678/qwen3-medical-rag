@@ -31,11 +31,8 @@ class KnowledgeRetriever(BaseRetriever):
             inputs: dict
     ) -> Dict[str, Any]:
         """
-        Args:
-            inputs: 输入字典，包含"input"键（查询文本）
-
-        Returns:
-            包含文档和检索时间的字典
+        Args:   inputs: 输入字典，包含"input"键（查询文本）
+        Returns: 包含文档和检索时间的字典
         """
         query = inputs.get("input", "")
         self.search_config.query = query

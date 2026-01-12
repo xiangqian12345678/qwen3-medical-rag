@@ -129,6 +129,8 @@ class MultiDialogueRagConfig(BaseModel):
     console_debug: bool = False  # 控制台调试开关
     thinking_in_context: bool = False  # 上下文思考开关
     cache_time: int = Field(default=60, ge=0, description="会话历史和摘要缓存超时时间（分钟），0表示不超时")  # 缓存超时时间
+    summary_max_length: int = Field(default=500, ge=50, description="每次摘要生成的最大字符长度，用于控制LLM生成摘要的长度")  # 每次摘要生成的最大长度
+    summary_max_cache_count: int = Field(default=3, ge=1, description="缓存的摘要迭代次数上限，超过后只保留最近N次的摘要")  # 缓存的摘要迭代总数上限
 
 
 # =============================================================================
