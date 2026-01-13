@@ -1,0 +1,68 @@
+milvus:
+  uri: http://localhost:19530
+  token: null
+  collection_name: medical_knowledge
+  drop_old: false
+  auto_id: false
+
+embedding:
+  summary_dense:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+  text_dense:
+    provider: ollama
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    dimension: 1024
+  text_sparse:
+    provider: self
+    vocab_path_or_name: vocab.pkl.gz
+    algorithm: BM25
+    domain_model: medicine
+    k1: 1.5
+    b: 0.75
+    build:
+      workers: 8
+      chunksize: 64
+
+llm:
+  provider: ollama
+  model: qwen3:4b
+  base_url: http://localhost:11434
+  temperature: 0.1
+  max_tokens: 2048
+
+data:
+  chunk_field: chunk
+  parent_chunk_field: parent_chunk
+  summary_field: summary
+  questions_field: questions
+  document_field: null
+  source_field: source
+  source_name_field: source_name
+  lt_doc_id_field: lt_doc_id
+  chunk_id_field: chunk_id
+  hash_id_field: hash_id
+
+agent:
+  mode: analysis
+  max_attempts: 2
+  network_search_enabled: false
+  network_search_cnt: 10
+  auto_search_param: true
+  console_debug: false
+  max_ask_num: 5
+
+multi_dialogue_rag:
+  estimate_token_fun: avg
+  llm_max_token: 1024
+  max_token_threshold: 1.01
+  cut_dialogue_scale: 2
+  smith_debug: false
+  console_debug: true
+  thinking_in_context: false
+  cache_time: 60
+  summary_max_length: 500
+  summary_max_cache_count: 3
