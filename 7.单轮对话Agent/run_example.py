@@ -1,17 +1,10 @@
 """单轮对话Agent示例"""
 import logging
-from pathlib import Path
 
-# 添加项目根目录到路径
-import sys
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
+from agent import SingleDialogueAgent
 # 使用完整路径导入
 from config import ConfigLoader
-from agent import SingleDialogueAgent
 from core import create_llm_client
-
 
 # 配置日志
 logging.basicConfig(
@@ -45,9 +38,9 @@ def main():
     ]
 
     for query in test_queries:
-        logger.info(f"\n{'='*50}")
+        logger.info(f"\n{'=' * 50}")
         logger.info(f"用户问题: {query}")
-        logger.info(f"{'='*50}")
+        logger.info(f"{'=' * 50}")
 
         try:
             answer = agent.answer(query)

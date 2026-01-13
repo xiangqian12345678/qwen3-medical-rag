@@ -5,17 +5,17 @@ import re
 from functools import partial
 from typing import List, Union
 
-from config.models import AppConfig
-from core.utils import create_llm_client, format_documents
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
-from prompts.templates import get_prompt_template
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
+from config.models import AppConfig
+from core.utils import create_llm_client
+from prompts.templates import get_prompt_template
 from .tools import AgentTools
 
 logger = logging.getLogger(__name__)
@@ -49,14 +49,14 @@ def format_document_str(documents: List[Document]) -> str:
 # =============================================================================
 class SearchMessagesState(TypedDict, total=False):
     """搜索消息状态"""
-    query: str
-    main_messages: List[Union[HumanMessage, AIMessage]]
-    other_messages: List[Union[SystemMessage, ToolMessage]]
-    docs: List[Document]
-    summary: str
-    retry: int
-    final: str
-    judge_result: str
+    query: str  # 用户查询
+    main_messages: List[Union[HumanMessage, AIMessage]]  # 主要对话消息(用户/AI)
+    other_messages: List[Union[SystemMessage, ToolMessage]]  # 其他消息(系统/工具)
+    docs: List[Document]  # 检索到的文档
+    answer: str  # RAG生成的回答
+    retry: int  # 剩余重试次数
+    final: str  # 最终回答
+    judge_result: str  # RAG质量评判结果: pass(通过)/retry(重试)/fail(失败)
 
 
 # =============================================================================
@@ -173,9 +173,10 @@ def rag_node(
         )
     ]
 
-    rag_ai = llm.invoke(prompt)
-    raw_content = rag_ai.content
-    rag_ai.content = del_think(rag_ai.content)
+    rag_response = llm.invoke(prompt)
+    raw_content = rag_response.content
+    processed_content = del_think(rag_response.content)
+    rag_ai = AIMessage(content=processed_content)
 
     if show_debug:
         logger.info(f"RAG原始回答: {raw_content}")
@@ -187,7 +188,7 @@ def rag_node(
         state["main_messages"].pop()
         state["main_messages"].append(rag_ai)
 
-    state["summary"] = rag_ai.content
+    state["answer"] = rag_ai.content
     return state
 
 
@@ -206,7 +207,7 @@ def judge_node(
             content=get_prompt_template("judge_rag")["user"].format(
                 format_document_str=format_document_str(state.get('docs', [])),
                 query=state['query'],
-                summary=state.get('summary', '')
+                answer=state.get('answer', '')
             )
         )
     ])
@@ -233,13 +234,13 @@ def judge_node(
 
 def finish_success(state: SearchMessagesState) -> SearchMessagesState:
     """成功结束节点"""
-    state["final"] = (state.get("summary", "") or "").strip() or "（空）"
+    state["final"] = (state.get("answer", "") or "").strip() or "（空）"
     return state
 
 
 def finish_fail(state: SearchMessagesState) -> SearchMessagesState:
     """失败结束节点"""
-    base = (state.get("summary", "") or "").strip() or "（空）"
+    base = (state.get("answer", "") or "").strip() or "（空）"
     state["final"] = base + "\n\n（内容可能不属实）"
     return state
 
@@ -278,6 +279,7 @@ class SingleDialogueAgent:
 
     def _build_graph(self):
         """构建搜索图"""
+
         def judge_router(state: SearchMessagesState) -> str:
             return state.get("judge_result", "fail")
 
@@ -354,11 +356,11 @@ class SingleDialogueAgent:
             "main_messages": [HumanMessage(content=query)],
             "other_messages": [],
             "docs": [],
-            "summary": "",
+            "answer": "",
             "retry": self.config.agent.max_attempts,
             "final": "",
             "judge_result": ""
         }
 
         out_state: SearchMessagesState = self.search_graph.invoke(init_state)
-        return out_state.get("final", "") or out_state.get("summary", "") or "（空）"
+        return out_state.get("final", "") or out_state.get("answer", "") or "（空）"
