@@ -48,7 +48,7 @@ class KnowledgeBase:
         Returns:
             检索结果列表
         """
-        from pymilvus import AnnSearchRequest, RRFRanker, utility
+        from pymilvus import AnnSearchRequest, RRFRanker
         from langchain_core.documents import Document
 
         # 如果没有指定检索请求，使用默认配置

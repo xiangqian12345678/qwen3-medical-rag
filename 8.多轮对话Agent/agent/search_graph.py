@@ -751,8 +751,6 @@ class SearchGraph:
         if websearch_func and config.agent.network_search_enabled:
             self.agent_tools.register_websearch(websearch_func)
 
-        self.db_search_tool = self.agent_tools.make_database_search_tool()
-
         # 只有在启用网络搜索时才创建网络搜索工具
         if config.agent.network_search_enabled:
             self.network_search_tool = self.agent_tools.make_web_search_tool()
@@ -763,12 +761,10 @@ class SearchGraph:
             self.network_search_llm = None
             self.network_tool_node = None
 
+        self.db_search_tool = self.agent_tools.make_database_search_tool()
         self.db_search_llm = power_model.bind_tools([self.db_search_tool])
-
         self.llm = create_llm_client(config.llm)
-
         self.db_tool_node = ToolNode([self.db_search_tool])
-
         self.search_graph = None
 
     def build_search_graph(self):
@@ -804,8 +800,8 @@ class SearchGraph:
             llm=self.llm,
             show_debug=self.config.multi_dialogue_rag.console_debug
         )
-        g.add_node("rag", rag_node_func)
 
+        g.add_node("rag", rag_node_func)
         g.add_node("finish_success", finish_success)
         g.add_node("finish_fail", finish_fail)
 
@@ -863,12 +859,8 @@ class SearchGraph:
     def run(self, init_state: SearchMessagesState) -> SearchMessagesState:
         """
         执行搜索图
-
-        Args:
-            init_state: 初始状态
-
-        Returns:
-            执行完成后的最终状态
+        Args:    init_state: 初始状态
+        Returns: 执行完成后的最终状态
         """
         if self.search_graph is None:
             self.build_search_graph()
