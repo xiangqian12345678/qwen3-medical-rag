@@ -3,6 +3,8 @@
 dataFusion.py - 数据融合主程序
 根据配置文件处理不同类型的数据文件
 """
+from pathlib import Path
+
 import yaml
 import os
 import sys
@@ -101,8 +103,8 @@ def process_file(file_name, file_config, project_root):
 
 def main():
     # 获取配置文件路径
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                               'configuration', 'fusion.yaml')
+    config_dir = Path(__file__).parent
+    config_path = config_dir / 'fusion.yaml'
 
     # 获取工程根目录
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
