@@ -27,7 +27,9 @@
         $ curl -O https://raw.githubusercontent.com/milvus-io/milvus/master/deployments/docker/standalone/docker-compose.yml
         $ docker compose up -d    # 首次会拉镜像，耐心等 1–3 分钟
         $ docker ps     # 查看运行容器
-    4.ollama安装模型 powershell
+    4.neo4j安装与启动 powershell
+        $ PS C:\Users\xiang> docker run -d  --name neo4j  -p 7474:7474  -p 7687:7687   -e NEO4J_AUTH=liuxq/123456 neo4j:latest
+    5.ollama安装模型 powershell
         $ ollama serve  # 安装并启动 Ollama
         $ ollama pull bge-m3:latest      # 嵌入模型
         $ ollama pull qwen3:4b           # 对话模型，本机测试用一个小号大模型就可以了，真正上线可以采用微调后的领域大模型
