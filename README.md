@@ -12,8 +12,10 @@
 
 ## 创建环境
 
-    conda create -name medicalrag python=3.11
-    pip install -e .
+    1.创建环境
+        conda create -name medicalrag python=3.11
+    2.安装依赖[只安装依赖]
+        pip install -r requirements.txt
 
 ## 基础服务
 
@@ -28,7 +30,10 @@
         $ docker compose up -d    # 首次会拉镜像，耐心等 1–3 分钟
         $ docker ps     # 查看运行容器
     4.neo4j安装与启动 powershell
-        $ PS C:\Users\xiang> docker run -d  --name neo4j  -p 7474:7474  -p 7687:7687   -e NEO4J_AUTH=liuxq/123456 neo4j:latest
+        $ PS C:\Users\xiang> docker run -d  --name neo4j  -p 7474:7474  -p 7687:7687   -e NEO4J_AUTH=neo4j/12345678 neo4j:latest
+        注意： 
+            用户名必须是 neo4j
+            密码长度至少 8位
     5.ollama安装模型 powershell
         $ ollama serve  # 安装并启动 Ollama
         $ ollama pull bge-m3:latest      # 嵌入模型

@@ -1,0 +1,36 @@
+{
+  "name": "医疗知识图谱",
+  "description": "医疗领域知识图谱，支持药物、症状、疾病等实体类型",
+  "entity_types": [
+    {
+      "name": "药物",
+      "properties": ["名称", "成分", "剂量", "适应症", "副作用"]
+    },
+    {
+      "name": "症状",
+      "properties": ["名称", "描述", "严重程度"]
+    },
+    {
+      "name": "疾病",
+      "properties": ["名称", "病因", "治疗方法", "症状"]
+    }
+  ],
+  "relationship_types": [
+    {
+      "name": "治疗",
+      "source": ["药物"],
+      "target": ["症状", "疾病"]
+    },
+    {
+      "name": "导致",
+      "source": ["疾病"],
+      "target": ["症状"]
+    },
+    {
+      "name": "属于",
+      "source": ["症状"],
+      "target": ["疾病"]
+    }
+  ],
+  "extraction_prompt": "你是一个专业的知识图谱工程师，请从以下文本中提取实体和关系，严格按照以下要求：\n1. 只提取文本中明确提到的实体和关系\n2. 使用JSON格式输出，包含两个列表：\"entities\"和\"relationships\"\n3. 实体格式：{\"id\": \"唯一ID\", \"name\": \"实体名称\", \"type\": \"实体类型\", \"properties\": {\"属性名\": \"属性值\"}}\n4. 关系格式：{\"source\": \"源实体ID\", \"target\": \"目标实体ID\", \"type\": \"关系类型\", \"properties\": {\"属性名\": \"属性值\"}}\n5. 实体类型必须是以下之一：{entity_types}\n6. 关系类型必须是以下之一：{relationship_types}\n\n文本内容：\n{text}"
+}
