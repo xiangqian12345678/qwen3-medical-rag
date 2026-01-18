@@ -24,9 +24,10 @@ class EmbeddingService:
         None (服务已初始化)
         """
         self.api_key = api_key or llm_config.api_key
-        self.api_url = embedding_config.url
+        self.api_url = embedding_config.base_url
         self.model = embedding_config.model
         self.dimension = embedding_config.dimension
+        self.provider = embedding_config.provider
         self.cache = {}  # 嵌入缓存
 
         # 创建HTTP客户端
@@ -54,25 +55,44 @@ class EmbeddingService:
             return self.cache[text]
 
         try:
-            response = self.client.post(
-                self.api_url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": self.model,
-                    "input": {"texts": [text]}
-                }
-            )
+            # 根据provider选择不同的API格式
+            if self.provider == "ollama":
+                # Ollama API格式
+                response = self.client.post(
+                    f"{self.api_url}/api/embed",
+                    json={
+                        "model": self.model,
+                        "input": text
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            response.raise_for_status()
-            data = response.json()
+                # Ollama返回格式: {"embeddings": [[...]], ...}
+                if "embeddings" in data and len(data["embeddings"]) > 0:
+                    embedding = data["embeddings"][0]
+                    self.cache[text] = embedding
+                    return embedding
+            else:
+                # DashScope格式
+                response = self.client.post(
+                    self.api_url,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "input": {"texts": [text]}
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            if "output" in data and "embeddings" in data["output"]:
-                embedding = data["output"]["embeddings"][0]["embedding"]
-                self.cache[text] = embedding
-                return embedding
+                if "output" in data and "embeddings" in data["output"]:
+                    embedding = data["output"]["embeddings"][0]["embedding"]
+                    self.cache[text] = embedding
+                    return embedding
 
             print(f"API响应格式错误: {data}")
             return []
@@ -110,37 +130,44 @@ class EmbeddingService:
 
         # 为未缓存的文本生成嵌入
         if uncached_texts:
-            batch_size = 10
-            for i in range(0, len(uncached_texts), batch_size):
-                batch = uncached_texts[i:i + batch_size]
+            if self.provider == "ollama":
+                # Ollama不支持真正的批量请求，需要逐个请求
+                for text in uncached_texts:
+                    embedding = self.generate_embedding(text)
+                    embeddings.append(embedding)
+            else:
+                # DashScope支持批量请求
+                batch_size = 10
+                for i in range(0, len(uncached_texts), batch_size):
+                    batch = uncached_texts[i:i + batch_size]
 
-                try:
-                    response = self.client.post(
-                        self.api_url,
-                        headers={
-                            "Authorization": f"Bearer {self.api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": self.model,
-                            "input": {"texts": batch}
-                        }
-                    )
+                    try:
+                        response = self.client.post(
+                            self.api_url,
+                            headers={
+                                "Authorization": f"Bearer {self.api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": self.model,
+                                "input": {"texts": batch}
+                            }
+                        )
 
-                    response.raise_for_status()
-                    data = response.json()
+                        response.raise_for_status()
+                        data = response.json()
 
-                    if "output" in data and "embeddings" in data["output"]:
-                        for j, embedding_data in enumerate(data["output"]["embeddings"]):
-                            embedding = embedding_data["embedding"]
-                            text = batch[j]
-                            self.cache[text] = embedding
-                            embeddings.append(embedding)
+                        if "output" in data and "embeddings" in data["output"]:
+                            for j, embedding_data in enumerate(data["output"]["embeddings"]):
+                                embedding = embedding_data["embedding"]
+                                text = batch[j]
+                                self.cache[text] = embedding
+                                embeddings.append(embedding)
 
-                except Exception as e:
-                    print(f"批量生成嵌入失败: {e}")
-                    for _ in batch:
-                        embeddings.append([])
+                    except Exception as e:
+                        print(f"批量生成嵌入失败: {e}")
+                        for _ in batch:
+                            embeddings.append([])
 
         return embeddings
 

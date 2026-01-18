@@ -31,7 +31,6 @@ class Neo4jConnection:
         self.uri = uri or neo4j_config.uri
         self.user = user or neo4j_config.user
         self.password = password or neo4j_config.password
-        # 默认使用 neo4j 数据库,避免创建数据库的问题
         self.database = database or neo4j_config.database
         self.driver: Optional[GraphDatabase.driver] = None
 

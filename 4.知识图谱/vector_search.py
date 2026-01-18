@@ -38,12 +38,15 @@ class VectorSearch:
 
         self.embedding_service = embedding_service or EmbeddingService()
 
+        # 从配置获取向量维度
+        self.embedding_dim = self.embedding_service.dimension
+
         # 向量索引
         self.entity_index = {
             "ids": [],
             "names": [],
             "types": [],
-            "embeddings": np.empty((0, 1536))
+            "embeddings": np.empty((0, self.embedding_dim))
         }
 
         self.rel_index = {
@@ -51,7 +54,7 @@ class VectorSearch:
             "types": [],
             "sources": [],
             "targets": [],
-            "embeddings": np.empty((0, 1536))
+            "embeddings": np.empty((0, self.embedding_dim))
         }
 
         # ANN模型
@@ -81,12 +84,14 @@ class VectorSearch:
             with self.driver.session() as session:
                 # 加载实体嵌入
                 print("🔄 加载实体嵌入...")
-                result = session.run("""
+                result = session.run(
+                    """
                     MATCH (e)
                     WHERE e.embedding IS NOT NULL
                     RETURN elementId(e) as id, e.name as name,
                            labels(e)[0] as type, e.embedding as embedding
-                """)
+                    """
+                )
 
                 entities = []
                 for record in result:
@@ -103,7 +108,7 @@ class VectorSearch:
                     "ids": [],
                     "names": [],
                     "types": [],
-                    "embeddings": np.empty((0, 1536))
+                    "embeddings": np.empty((0, self.embedding_dim))
                 }
 
                 for entity in entities:
@@ -116,17 +121,21 @@ class VectorSearch:
                     ])
 
                 print(f"✅ 加载了 {len(self.entity_index['ids'])} 个实体嵌入")
+                if len(self.entity_index['ids']) == 0:
+                    print("⚠️ 警告: 数据库中没有实体嵌入向量，将无法进行向量检索！")
 
                 # 加载关系嵌入
                 print("🔄 加载关系嵌入...")
-                result = session.run("""
+                result = session.run(
+                    """
                     MATCH ()-[r]->()
                     WHERE r.embedding IS NOT NULL
                     RETURN elementId(r) as id, type(r) as type,
                            startNode(r).name as source,
                            endNode(r).name as target,
                            r.embedding as embedding
-                """)
+                    """
+                )
 
                 relationships = []
                 for record in result:
@@ -145,7 +154,7 @@ class VectorSearch:
                     "types": [],
                     "sources": [],
                     "targets": [],
-                    "embeddings": np.empty((0, 1536))
+                    "embeddings": np.empty((0, self.embedding_dim))
                 }
 
                 for rel in relationships:
@@ -208,12 +217,17 @@ class VectorSearch:
         threshold = threshold or self.similarity_threshold
         top_k = top_k or self.top_k
 
+        print(f"  向量索引大小: {self.entity_index['embeddings'].shape}")
+        print(f"  查询文本: {query_text}")
+
         # 生成查询嵌入
         query_embedding = self.embedding_service.generate_embedding(query_text)
         if not query_embedding:
+            print(f"  ❌ 生成查询嵌入失败")
             return []
 
         query_vector = np.array(query_embedding).reshape(1, -1)
+        print(f"  查询向量维度: {query_vector.shape}")
 
         # 使用ANN模型检索
         if self.entity_ann:

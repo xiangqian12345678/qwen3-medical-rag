@@ -137,6 +137,9 @@ class RAGSystem:
         )
 
         entities = extraction_result.get("entities", [])
+        print(f"🔍 提取到 {len(entities)} 个实体:")
+        for e in entities:
+            print(f"  - {e.get('type', '未知')}: {e.get('name', '未知')}")
 
         # 2. 向量检索相似实体
         entity_texts = [
@@ -144,16 +147,24 @@ class RAGSystem:
             for e in entities
         ]
 
+        if not entity_texts:
+            print("⚠️ 没有提取到实体，无法进行向量检索")
+            # 如果没有提取到实体，直接使用查询文本进行检索
+            entity_texts = [query_text]
+
         all_similar_entity_ids = set()
         for entity_text in entity_texts:
+            print(f"🔍 搜索相似实体: {entity_text}")
             similar_entities = self.search.search_similar_entities(
                 entity_text,
                 threshold=similarity_threshold,
                 top_k=top_k
             )
 
+            print(f"  找到 {len(similar_entities)} 个相似实体")
             for entity in similar_entities:
                 all_similar_entity_ids.add(entity["id"])
+                print(f"    - {entity['name']} ({entity['type']}): {entity['similarity']:.3f}")
 
         print(f"🔍 找到 {len(all_similar_entity_ids)} 个相似实体")
 
@@ -171,7 +182,6 @@ class RAGSystem:
         vdb_results = [result.get("source", "") for result in kg_results[:5]]
         answer = self.llm_service.generate_rag_answer(
             query_text,
-            kg_results,
             vdb_results
         )
 

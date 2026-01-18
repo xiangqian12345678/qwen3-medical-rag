@@ -10,6 +10,7 @@ charset-normalizer==3.4.2
 click==8.2.1
 cryptography==45.0.6
 cyclopts==3.22.5
+docx2txt==0.8
 cython==3.1.2
 dataclasses-json==0.6.7
 datasets==4.0.0

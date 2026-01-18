@@ -58,16 +58,28 @@ class Neo4jOperations:
 
         try:
             with self.driver.session(database=self.database) as session:
+                # 构建 Cypher 查询语句
+                # MERGE: 如果节点存在则匹配，不存在则创建（相当于"创建或更新"操作）
+                # (e:Entity:{entity_type}): e是节点别名，Entity是固定标签，{entity_type}是动态标签（如"药物"、"症状"）
+                # {name: $name}: 根据name属性匹配或创建节点，$name是参数化变量（防止注入）
+                # SET e += $props: 合并属性，不会覆盖已有属性，只添加/更新传入的属性
+                # RETURN elementId(e) as id: 返回节点的唯一ID（Neo4j 5.x+ 语法）
                 query = f"""
                 MERGE (e:Entity:{entity_type} {{name: $name}})
                 SET e += $props
                 RETURN elementId(e) as id
                 """
 
+                # 执行查询，传入参数：name是节点名称，props是额外属性字典
                 result = session.run(query, name=name, props=properties)
+
+                # 获取单条结果记录
                 record = result.single()
+
+                # 消耗结果集（释放资源）
                 result.consume()
 
+                # 如果查询成功，返回节点ID
                 if record:
                     return record["id"]
                 return None
@@ -99,6 +111,16 @@ class Neo4jOperations:
 
         try:
             with self.driver.session(database=self.database) as session:
+                # 构建 Cypher 查询语句
+                # MATCH (source), (target): 匹配两个独立的节点，分别命名为 source 和 target
+                # WHERE: 过滤条件，根据节点ID精确定位两个节点
+                # elementId(source)/elementId(target): 获取节点的唯一ID（Neo4j 5.x+ 语法）
+                # MERGE (source)-[r:{rel_type}]->(target): 创建或更新关系
+                #   - [r:{rel_type}]: r是关系别名，{rel_type}是动态关系类型（如"治疗"、"导致"）
+                #   - ->: 表示有向关系，从source指向target
+                #   - 如果该类型的关系已存在则匹配，不存在则创建
+                # SET r += $props: 合并关系属性，不覆盖已有属性
+                # RETURN elementId(r) as id: 返回关系的唯一ID
                 query = f"""
                 MATCH (source), (target)
                 WHERE elementId(source) = $source_id AND elementId(target) = $target_id
@@ -107,15 +129,21 @@ class Neo4jOperations:
                 RETURN elementId(r) as id
                 """
 
+                # 执行查询，传入参数：源节点ID、目标节点ID、关系属性字典
                 result = session.run(
                     query,
                     source_id=source_id,
                     target_id=target_id,
                     props=properties
                 )
+
+                # 获取单条结果记录
                 record = result.single()
+
+                # 消耗结果集（释放资源）
                 result.consume()
 
+                # 如果查询成功，返回关系ID
                 if record:
                     return record["id"]
                 return None

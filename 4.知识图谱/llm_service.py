@@ -27,6 +27,7 @@ class LLMService:
         None (服务已初始化)
         """
         self.api_key = api_key or llm_config.api_key
+        self.provider = llm_config.provider
 
         # 创建OpenAI兼容客户端
         http_client = httpx.Client(
@@ -34,9 +35,12 @@ class LLMService:
             timeout=60.0
         )
 
+        # Ollama 不需要真实的 api_key，使用任意字符串即可
+        client_api_key = self.api_key if self.api_key else "ollama"
+
         self.client = OpenAI(
-            api_key=self.api_key,
-            base_url=llm_config.api_base,
+            api_key=client_api_key,
+            base_url=llm_config.base_url,
             http_client=http_client
         )
 
@@ -261,61 +265,37 @@ class LLMService:
             print(f"生成答案失败: {e}")
             return "抱歉，生成答案时出现问题，请稍后再试。"
 
-    def generate_rag_answer(self, question: str, kg_results: List[Dict],
+    def generate_rag_answer(self, question: str,
                             vdb_results: List[str] = None) -> str:
         """
         生成RAG整合答案
 
         【输入示例】
         question = "阿司匹林可以治疗什么？"
-        kg_results = [
-            {
-                "source": "阿司匹林",
-                "source_type": "药物",
-                "relationship": "治疗",
-                "target": "头痛",
-                "target_type": "症状",
-                "rel_properties": {}
-            },
-            {
-                "source": "阿司匹林",
-                "source_type": "药物",
-                "relationship": "治疗",
-                "target": "发热",
-                "target_type": "症状",
-                "rel_properties": {}
-            }
+        vdb_results = [
+            "阿司匹林是一种非甾体抗炎药，具有镇痛、解热、抗炎作用，主要用于治疗轻至中度疼痛如头痛、关节痛、肌肉痛、牙痛等。",
+            "阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。"
         ]
-        vdb_results = ["阿司匹林", "阿司匹林"]  # 从kg_results中提取的源实体名称列表
-        answer = service.generate_rag_answer(question, kg_results, vdb_results)
+        answer = service.generate_rag_answer(question, vdb_results)
 
         【输出示例】
-        "根据知识图谱和医学文献，阿司匹林可以治疗头痛、发热等症状。作为非甾体抗炎药，阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。常用于治疗头痛、关节痛、肌肉痛、发热等症状。此外，长期小剂量服用阿司匹林还可用于预防心脑血管疾病，如心肌梗死和脑卒中的二级预防。"
+        "根据医学文献，阿司匹林可以治疗头痛、发热等症状。作为非甾体抗炎药，阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。常用于治疗头痛、关节痛、肌肉痛、发热等症状。此外，长期小剂量服用阿司匹林还可用于预防心脑血管疾病，如心肌梗死和脑卒中的二级预防。"
         """
-        # 构建知识图谱描述
-        kg_desc = ""
-        if kg_results:
-            kg_desc = "知识图谱信息：\n"
-            for record in kg_results[:5]:
-                kg_desc += f"- {record.get('source', '')} {record.get('relationship', '')} {record.get('target', '')}\n"
-
         # 构建向量检索描述
         vdb_desc = ""
         if vdb_results:
-            vdb_desc = "\n相关文档片段：\n"
+            vdb_desc = "相关文档片段：\n"
             for i, doc in enumerate(vdb_results[:3]):
                 vdb_desc += f"片段{i+1}: {doc[:200]}...\n"
 
         prompt = f"""
         你是一个专业的知识问答助手，请基于以下信息回答用户问题：
-        
-        {kg_desc}
-        
+
         {vdb_desc}
-        
+
         用户问题：
         {question}
-        
+
         请给出专业、准确的回答：
         """
 
@@ -375,37 +355,11 @@ if __name__ == "__main__":
     # 示例3: 生成RAG整合答案
     print("\n示例3: 生成RAG整合答案")
     rag_question = "阿司匹林可以治疗什么？"
-    kg_results = [
-        {
-            "source": "阿司匹林",
-            "source_type": "药物",
-            "relationship": "治疗",
-            "target": "头痛",
-            "target_type": "症状",
-            "rel_properties": {}
-        },
-        {
-            "source": "阿司匹林",
-            "source_type": "药物",
-            "relationship": "治疗",
-            "target": "发热",
-            "target_type": "症状",
-            "rel_properties": {}
-        },
-        {
-            "source": "阿司匹林",
-            "source_type": "药物",
-            "relationship": "治疗",
-            "target": "关节痛",
-            "target_type": "症状",
-            "rel_properties": {}
-        }
-    ]
     vdb_results = [
         "阿司匹林是一种非甾体抗炎药，具有镇痛、解热、抗炎作用，主要用于治疗轻至中度疼痛如头痛、关节痛、肌肉痛、牙痛等。",
         "阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。"
     ]
-    rag_answer = service.generate_rag_answer(rag_question, kg_results, vdb_results)
+    rag_answer = service.generate_rag_answer(rag_question, vdb_results)
     print(f"问题: {rag_question}")
     print(f"答案: {rag_answer}")
 

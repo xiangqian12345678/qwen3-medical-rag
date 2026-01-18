@@ -8,19 +8,35 @@ neo4j:
   connection_timeout: 30.0
   acquisition_timeout: 60.0
 
+## 使用dashscope
+#llm:
+#  provider: dashscope
+#  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+#  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+#  model: qwen-plus
+#  temperature: 0.3
+#  max_tokens: 2048
+#
+#embedding:
+#  provider: dashscope
+#  model: text-embedding-v2
+#  base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+#  dimension: 1536
+
+#  使用ollama
 llm:
-  provider: dashscope
-  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-  api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
-  model: qwen-plus
-  temperature: 0.3
+  provider: ollama
+  api_key: ollama
+  base_url: http://localhost:11434/v1
+  model: qwen3:4b
+  temperature: 0.1
   max_tokens: 2048
 
 embedding:
-  provider: dashscope
-  model: text-embedding-v2
-  url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-  dimension: 1536
+  provider: ollama
+  model: bge-m3:latest
+  base_url: http://localhost:11434
+  dimension: 1024
 
 knowledge_graph:
   schema_file: config/kg_schema.json

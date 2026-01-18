@@ -59,12 +59,14 @@ class Neo4jQuery:
         try:
             with self.driver.session(database=self.database) as session:
                 # 查询匹配的节点
-                res = session.run("""
+                res = session.run(
+                    """
                     MATCH (n)
                     WHERE n.name CONTAINS $kw
                     RETURN elementId(n) as node_id, n.name as name, labels(n)[0] as type
                     LIMIT $limit
-                """, kw=keyword, limit=limit)
+                    """, kw=keyword, limit=limit
+                )
 
                 nodes = []
                 node_set = set()
@@ -82,12 +84,15 @@ class Neo4jQuery:
                 links = []
                 if node_set:
                     node_id_list = list(node_set)
-                    res_links = session.run("""
+                    res_links = session.run(
+                        """
                         MATCH (n)-[r]->(m)
                         WHERE elementId(n) IN $node_ids OR elementId(m) IN $node_ids
                         RETURN elementId(n) as source_id, elementId(m) as target_id, type(r) as type
                         LIMIT 100
-                    """, node_ids=node_id_list)
+                        """,
+                        node_ids=node_id_list
+                    )
 
                     for rec in res_links:
                         links.append({
@@ -122,25 +127,44 @@ class Neo4jQuery:
                 ]
             }
         ]
+
+        为啥可以出现“头疼”节点？
+        1.方向无关性: [*]-[*] 匹配任意方向的关系
+            阿司匹林→头痛 的关系是"治疗"
+            感冒→头痛 的关系是"导致"
+            Cypher的 -[*]- 会双向匹配
+        2.中介节点作用: "头痛"是共同连接点
+            阿司匹林能治疗头痛
+            感冒会导致头痛
+            头痛就成为两个实体的桥梁
+        3.语义解释: 这说明"阿司匹林"和"感冒"通过"头痛"这个症状建立了关联
+            临床上:阿司匹林可以缓解感冒引起的头痛症状
+            路径显示了药物→症状→疾病的因果链
         """
         if not self.driver:
             return []
 
         try:
             with self.driver.session(database=self.database) as session:
-                res = session.run("""
-                    MATCH path = shortestPath(
-                        (a {name:$src})-[*]-(b {name:$tgt})
-                    )
-                    RETURN [
-                        n in nodes(path) |
-                        {id:elementId(n), name:n.name, type:labels(n)[0]}
-                    ] as nodes,
-                    [
-                        r in relationships(path) |
-                        {source:startNode(r).name, target:endNode(r).name, type:type(r)}
-                    ] as rels
-                """, src=source, tgt=target)
+                # 使用 shortestPath 函数查找两个节点之间的最短路径
+                # * 表示匹配任意类型的关系,方向不限(-[*]-)
+                res = session.run(
+                    """
+                        MATCH path = shortestPath(
+                            (a {name:$src})-[*]-(b {name:$tgt})
+                        )
+                        RETURN [
+                            n in nodes(path) |
+                            {id:elementId(n), name:n.name, type:labels(n)[0]}
+                        ] as nodes,
+                        [
+                            r in relationships(path) |
+                            {source:startNode(r).name, target:endNode(r).name, type:type(r)}
+                        ] as rels
+                    """,
+                    src=source,
+                    tgt=target
+                )
 
                 return [dict(r) for r in res]
         except Exception as e:
@@ -171,6 +195,13 @@ class Neo4jQuery:
 
         try:
             with self.driver.session(database=self.database) as session:
+                # 查询指定实体的多层关系路径
+                # MATCH path = (start)-[rel*..{depth}]-(end): 匹配从起点到终点的路径，关系长度为0到depth层
+                # WHERE elementId(start) IN $entity_ids: 只查询参数中指定的实体作为起点
+                # WITH nodes(path) AS nodes, relationships(path) AS rels: 提取路径中的所有节点和关系
+                # UNWIND nodes AS node: 将节点数组展开为单独的行
+                # UNWIND rels AS rel: 将关系数组展开为单独的行
+                # WITH DISTINCT rel, startNode(rel) AS start, endNode(rel) AS end: 去重，并获取关系的起点和终点
                 query = f"""
                 MATCH path = (start)-[rel*..{depth}]-(end)
                 WHERE elementId(start) IN $entity_ids
@@ -255,7 +286,6 @@ class Neo4jQuery:
                 nodes = []
                 links = []
                 node_set = set()
-
                 for record in result:
                     source_id = record["source_id"]
                     target_id = record["target_id"]
@@ -318,7 +348,6 @@ class Neo4jQuery:
                 nodes = []
                 links = []
                 node_set = set()
-
                 for record in result:
                     source_id = record["source_id"]
                     target_id = record["target_id"]

@@ -113,7 +113,28 @@ class Neo4jSave:
         entity_type = entity["type"]
         properties = entity.get("properties", {})
 
-        # 构建查询
+        '''
+        构建查询
+        1. MERGE - 合并操作
+            MERGE 是 Neo4j 的特殊操作，等同于"创建或匹配"
+            如果节点已存在（基于匹配条件），则返回该节点
+            如果节点不存在，则创建新节点
+            这是"Upsert"（更新或插入）操作，确保数据不重复
+        2. (e:Entity:{entity_type} {name: $name}) - 节点模式
+            e - 节点变量名（别名），后续引用该节点时使用
+            :Entity - 节点的标签，所有实体都有 Entity 标签
+            :{entity_type} - 动态标签，例如 :疾病、:症状、:药物 等
+            {name: $name} - 匹配/创建条件，基于节点的 name 属性
+            $name 是参数化查询，防止注入攻击
+        3. SET e += $props - 设置属性
+            e += $props 将参数中的所有属性添加到节点 e
+            使用 += 运算符表示"添加或更新"属性
+            不会删除已有属性，只会添加新属性或更新已有属性
+        4. RETURN elementId(e) as id - 返回结果
+            elementId(e) 获取节点的唯一标识符
+            as id 将返回值命名为 id
+            用于确认操作是否成功并获取节点 ID
+        '''
         query = f"""
         MERGE (e:Entity:{entity_type} {{name: $name}})
         SET e += $props
@@ -132,16 +153,17 @@ class Neo4jSave:
             embedding = self.embedding_service.generate_embedding(entity_text)
 
             if embedding:
-                session.run("""
+                session.run(
+                    """
                     MATCH (e) WHERE elementId(e) = $id
                     SET e.embedding = $embedding
-                """, id=entity_id, embedding=embedding)
+                    """, id=entity_id, embedding=embedding
+                )
 
             return entity_id
         return None
 
-    def _save_relationship(self, session, rel: Dict,
-                          source_id: int, target_id: int) -> int:
+    def _save_relationship(self, session, rel: Dict, source_id: int, target_id: int) -> int:
         """
         保存单个关系
 
@@ -158,7 +180,33 @@ class Neo4jSave:
         source_name = self.entity_cache.get(source_id, {}).get("name", "Unknown")
         target_name = self.entity_cache.get(target_id, {}).get("name", "Unknown")
 
-        # 构建查询
+        '''
+        1. MATCH (source), (target) - 匹配节点
+            查找两个节点，分别命名为 source（源节点）和 target（目标节点）
+            这里没有指定匹配条件，条件在 WHERE 子句中
+            逗号表示同时查找多个节点（等同于独立查找）
+        2. WHERE elementId(source) = $source_id AND elementId(target) = $target_id - 过滤条件
+            elementId(source) - 获取源节点的唯一标识符
+            elementId(target) - 获取目标节点的唯一标识符
+            $source_id 和 $target_id 是参数，传入节点的 ID
+            AND 表示两个条件必须同时满足
+            确保准确定位到特定的两个节点
+        3. MERGE (source)-[r:{rel_type}]->(target) - 创建/合并关系
+            MERGE - 创建或匹配关系（类似节点的 MERGE）
+            (source) - 源节点（已通过 MATCH 找到）
+            [r:{rel_type}] - 关系变量和类型
+            r - 关系变量名（别名）
+            :{rel_type} - 关系类型（动态），如 :导致、:治疗、:症状
+            -> - 有向关系，从 source 指向 target
+            (target) - 目标节点（已通过 MATCH 找到）
+            如果关系已存在，则返回；否则创建新关系
+        4. SET r += $props - 设置关系属性
+            r += $props 将参数中的属性添加到关系
+            += 运算符：添加新属性或更新已有属性
+            不会删除现有属性
+        5. RETURN - 返回结果
+            返回空（当前代码不完整，通常会返回 r 或关系信息）
+        '''
         query = f"""
         MATCH (source), (target)
         WHERE elementId(source) = $source_id AND elementId(target) = $target_id
@@ -184,10 +232,12 @@ class Neo4jSave:
             embedding = self.embedding_service.generate_embedding(rel_text)
 
             if embedding:
-                session.run("""
+                session.run(
+                    """
                     MATCH ()-[r]->() WHERE elementId(r) = $id
                     SET r.embedding = $embedding
-                """, id=rel_id, embedding=embedding)
+                    """, id=rel_id, embedding=embedding
+                )
 
             return rel_id
         return None

@@ -163,8 +163,8 @@ class LLMConfig:
         return self.llm_config.get("api_key", "")
 
     @property
-    def api_base(self) -> str:
-        return self.llm_config.get("api_base", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    def base_url(self) -> str:
+        return self.llm_config.get("base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
     @property
     def model(self) -> str:
@@ -197,8 +197,8 @@ class EmbeddingConfig:
         return self.embedding_config.get("provider", "dashscope")
 
     @property
-    def url(self) -> str:
-        return self.embedding_config.get("url", "")
+    def base_url(self) -> str:
+        return self.embedding_config.get("base_url", "")
 
     @property
     def model(self) -> str:

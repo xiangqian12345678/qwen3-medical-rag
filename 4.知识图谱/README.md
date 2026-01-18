@@ -78,27 +78,40 @@
 ├── vector_search.py             # 向量相似度检索
 ├── rag_system.py                # RAG系统整合
 ├── text_processor.py            # 文本处理功能
-├── main.py                      # 主程序和示例
-├── demo_quick_start.py          # 快速开始演示
-├── test_basic.py                # 基础功能测试
+├── run_create_graph.py          # 创建知识图谱主程序
+├── run_rag.py                   # 运行RAG查询
+├── run_clean_neo4j.py           # Neo4j数据库清理工具
+├── test_basic_function.py       # 基础功能测试
 └── README.md                    # 本文档
 ```
 
+### 工具脚本说明
+
+| 脚本名称 | 功能 | 使用场景 |
+|---------|------|---------|
+| `run_create_graph.py` | 创建知识图谱主程序 | 从文本提取实体关系并构建知识图谱 |
+| `run_rag.py` | 运行RAG查询 | 执行知识图谱RAG查询 |
+| `run_clean_neo4j.py` | Neo4j数据库全面清理工具 | 需要清空或重置数据库时使用 |
+| `test_basic_function.py` | 基础功能测试 | 测试各模块基础功能 |
+
 ### 核心模块说明
 
-| 模块 | 功能 | 代码行数 |
-|-----|------|---------|
-| config.py | 配置管理，支持统一配置和Schema管理 | ~220行 |
-| neo4j_connection.py | Neo4j连接管理，连接池配置 | ~150行 |
-| embedding_service.py | 嵌入向量生成，支持DashScope API | ~200行 |
-| llm_service.py | 大模型调用，实体提取和答案生成 | ~280行 |
-| neo4j_operations.py | 基础CRUD操作 | ~300行 |
-| neo4j_query.py | 图查询功能 | ~420行 |
-| neo4j_save.py | 数据保存和批量处理 | ~200行 |
-| vector_search.py | 向量相似度检索 | ~280行 |
-| rag_system.py | RAG系统整合 | ~200行 |
-| text_processor.py | 文本处理 | ~180行 |
-| main.py | 主程序和6个完整示例 | ~360行 |
+| 模块 | 功能 |
+|-----|------|
+| config.py | 配置管理，支持统一配置和Schema管理 |
+| neo4j_connection.py | Neo4j连接管理，连接池配置 |
+| embedding_service.py | 嵌入向量生成，支持DashScope API |
+| llm_service.py | 大模型调用，实体提取和答案生成 |
+| neo4j_operations.py | 基础CRUD操作 |
+| neo4j_query.py | 图查询功能 |
+| neo4j_save.py | 数据保存和批量处理 |
+| vector_search.py | 向量相似度检索 |
+| rag_system.py | RAG系统整合 |
+| text_processor.py | 文本处理 |
+| run_create_graph.py | 创建知识图谱主程序 |
+| run_rag.py | RAG查询主程序 |
+| run_clean_neo4j.py | 数据库清理工具 |
+| test_basic_function.py | 基础功能测试 |
 
 ## 快速开始
 
@@ -211,16 +224,76 @@ rag:
 
 ```bash
 # 测试基础功能
-python test_basic.py
+python test_basic_function.py
 
-# 运行完整示例
-python main.py
+# 创建知识图谱
+python run_create_graph.py
 
-# 快速开始演示
-python demo_quick_start.py
+# 运行RAG查询
+python run_rag.py
+```
+
+### 5. 清理数据库
+
+如果需要清空或重置Neo4j数据库，使用清理工具：
+
+```bash
+python run_clean_neo4j.py
 ```
 
 ## 配置使用说明
+
+### 支持的模型提供商
+
+系统支持两种模型提供商：
+
+#### 1. DashScope (阿里云通义千问)
+
+适合需要高质量模型输出的场景：
+
+```yaml
+llm:
+  provider: dashscope
+  api_key: sk-your-api-key-here
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  temperature: 0.3
+  max_tokens: 2048
+
+embedding:
+  provider: dashscope
+  model: text-embedding-v2
+  base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+  dimension: 1536
+```
+
+#### 2. Ollama (本地模型)
+
+适合需要隐私保护或离线使用的场景：
+
+```yaml
+llm:
+  provider: ollama
+  api_key: ollama  # Ollama不需要真实的API密钥
+  base_url: http://localhost:11434/v1
+  model: qwen3:4b
+  temperature: 0.1
+  max_tokens: 2048
+
+embedding:
+  provider: ollama
+  model: bge-m3:latest
+  base_url: http://localhost:11434
+  dimension: 1024
+```
+
+**重要说明：**
+- 使用Ollama前需要先安装并启动Ollama服务
+- 需要下载相应的模型：
+  ```bash
+  ollama pull qwen3:4b      # LLM模型
+  ollama pull bge-m3:latest # 嵌入模型
+  ```
 
 ### 配置类说明
 
@@ -405,34 +478,6 @@ embed_service.close()
 llm_service.close()
 conn.close()
 ```
-
-### 示例6: 完整的RAG单轮会话
-
-演示从用户问题到生成答案的完整流程：
-
-```python
-from rag_system import RAGSystem
-from neo4j_connection import Neo4jConnection
-
-conn = Neo4jConnection()
-conn.connect()
-rag = RAGSystem(conn)
-
-# 用户会话
-while True:
-    user_input = input("请输入您的问题: ")
-
-    if user_input.lower() in ['quit', 'exit']:
-        break
-
-    result = rag.process_query(user_input)
-    print(f"回答: {result['answer']}")
-    print(f"处理时间: {result['processing_time']:.2f}s")
-
-rag.close()
-conn.close()
-```
-
 ## API文档
 
 ### Config 类
@@ -569,6 +614,8 @@ RAG系统整合类。
 
 ## 依赖要求
 
+### Python包依赖
+
 ```
 neo4j>=5.0.0
 openai>=1.0.0
@@ -576,6 +623,85 @@ httpx>=0.24.0
 numpy>=1.24.0
 scikit-learn>=1.3.0
 pyyaml>=6.0.2
+```
+
+### 外部服务依赖
+
+#### Neo4j数据库
+- 版本：5.0+
+- 内存：建议至少4GB
+- 安装：[Neo4j官方下载](https://neo4j.com/download/)
+
+#### DashScope (可选)
+- 官网：[阿里云灵积](https://dashscope.aliyuncs.com/)
+- 用途：在线LLM和嵌入服务
+- 需要：API密钥
+
+#### Ollama (可选)
+- 官网：[Ollama](https://ollama.ai/)
+- 用途：本地LLM和嵌入服务
+- 需要下载的模型：
+  ```bash
+  ollama pull qwen3:4b       # LLM模型
+  ollama pull bge-m3:latest  # 嵌入模型
+  ```
+
+## 数据库清理
+
+### 使用Neo4j数据库清理工具
+
+```bash
+python run_clean_neo4j.py
+```
+
+该工具提供交互式菜单，支持以下操作：
+
+1. **删除所有数据** - 清空整个数据库（节点和关系）
+2. **删除指定类型的节点** - 例如只删除"药物"类型的节点
+3. **清除所有嵌入向量** - 保留节点和关系，只删除embedding属性
+4. **删除孤立节点** - 删除没有关系的节点
+5. **重置数据库** - 删除所有数据并重建索引
+6. **仅显示统计信息** - 查看数据库状态而不执行任何操作
+
+**使用场景**：
+- 需要完全清空数据库重新构建
+- 只清理特定类型的数据
+- 清理嵌入向量（修改配置后）
+- 清理垃圾数据（孤立节点）
+- 重置索引
+
+**安全性**：
+- 所有删除操作都需要输入 `yes` 确认
+- 操作前显示将要删除的数据统计
+- 支持随时取消操作
+
+### 使用Cypher命令清理
+
+如果需要更精细的控制，可以手动执行Cypher命令：
+
+```cypher
+// 删除所有实体的嵌入向量
+MATCH (e)
+WHERE e.embedding IS NOT NULL
+REMOVE e.embedding
+
+// 删除所有关系的嵌入向量
+MATCH ()-[r]->()
+WHERE r.embedding IS NOT NULL
+REMOVE r.embedding
+```
+
+### 常见问题
+
+**Q: 清理会删除实体和关系吗？**
+A: 清除嵌入向量选项只会删除 `embedding` 属性，实体名称、类型和其他属性都会保留。删除所有数据选项会清空整个数据库。
+
+**Q: 可以只清理部分实体的嵌入吗？**
+A: 可以，使用Cypher命令按条件筛选：
+```cypher
+MATCH (e:药物)
+WHERE e.embedding IS NOT NULL
+REMOVE e.embedding
 ```
 
 ## 注意事项
@@ -586,34 +712,37 @@ pyyaml>=6.0.2
    - 建议配置足够的内存
 
 2. **API密钥**
-   - 需要配置有效的通义千问API密钥
-   - 密钥配置在config/kg_config.yaml中
+   - 使用DashScope需要配置有效的通义千问API密钥
+   - 使用Ollama不需要API密钥，但需要安装并启动Ollama服务
 
-3. **首次运行**
+3. **模型配置**
+   - 修改嵌入模型配置后，必须清理数据库中的旧嵌入向量
+   - 不同模型的嵌入维度不同（DashScope: 1536维，Ollama bge-m3: 1024维）
+   - 混用不同维度的嵌入向量会导致向量检索失败
+
+4. **首次运行**
    - 首次运行会从数据库加载所有嵌入向量
-   - 可能需要较长时间
+   - 可能需要较长时间（取决于数据量）
    - 建议先用小数据集测试
 
-4. **性能优化**
+5. **性能优化**
    - 使用缓存机制减少API调用
    - 支持批量操作
    - 大规模知识库建议增加内存配置
+   - 使用Ollama可以避免网络延迟，但需要足够的本地资源
 
-5. **配置管理**
+6. **配置管理**
    - 推荐使用新的配置类（neo4j_config、llm_config等）
    - 旧的配置访问方式仍然可用，但建议逐步迁移
    - 配置文件支持注释，便于理解和维护
 
 ## 文件统计
 
-- **总文件数**: 19个（含配置文件）
+- **总文件数**: 17个（含配置文件和工具脚本）
 - **代码文件**: 13个
+- **工具脚本**: 3个（run_create_graph.py、run_rag.py、run_clean_neo4j.py）
 - **配置文件**: 2个（在config目录）
-- **文档文件**: 4个
-- **总代码行数**: 约3000行
-- **平均文件行数**: 约250行
-- **最大文件行数**: 420行 (neo4j_query.py)
-- **最大函数行数**: 约60行
+- **文档文件**: 2个
 
 ## 总结
 
@@ -624,16 +753,59 @@ pyyaml>=6.0.2
 ✅ 大模型调用生成元组的功能
 ✅ 实体和关系存储到neo4j数据库
 ✅ 完整的数据查询功能
-✅ Neo4j使用例子（6个示例）
 ✅ 根据用户问题进行neo4j查询
-✅ 生成RAG结果的例子
+✅ 生成RAG结果
 ✅ 代码功能拆分合理（13个模块）
-✅ 每个文件不超过800行
-✅ 每个函数不超过80行
 ✅ 不包含前端展示内容
 ✅ 所有函数都有输入输出示例和代码注释
 ✅ 配置文件已整理到config目录
 ✅ 使用YAML格式配置文件，支持模块化配置
 ✅ 提供专用配置类，类型安全的配置访问
+✅ 支持DashScope和Ollama两种模型提供商
+✅ 提供交互式Neo4j数据库清理工具
+✅ 支持多种清理场景（删除数据、清理嵌入、删除孤立节点等）
 
-所有代码都已经过精心设计，可以直接使用。建议先运行test_basic.py测试基础功能，然后运行main.py查看完整示例。
+### 快速开始指南
+
+1. **配置环境**：安装依赖并配置 `config/kg_config.yaml`
+2. **测试基础功能**：运行 `python test_basic_function.py`
+3. **构建知识库**：运行 `python run_create_graph.py`
+4. **测试RAG**：运行 `python run_rag.py`
+5. **清理数据库**：运行 `python run_clean_neo4j.py`
+
+## 故障排除
+
+### 问题1: 连接数据库失败
+
+**症状**：
+```
+❌ 数据库连接失败
+```
+
+**解决方案**：
+1. 检查Neo4j是否启动：访问 http://localhost:7474
+2. 检查配置文件中的连接信息（uri、user、password）
+3. 确认Neo4j版本 >= 5.0
+
+### 问题2: 嵌入服务调用失败
+
+**症状**：
+```
+生成嵌入失败: Connection refused
+```
+
+**解决方案**：
+- **使用DashScope**：检查API密钥是否正确，网络是否可访问
+- **使用Ollama**：检查Ollama服务是否启动（`ollama list`）
+
+### 问题3: LLM调用超时
+
+**症状**：
+```
+提取实体关系失败: timeout
+```
+
+**解决方案**：
+1. 检查网络连接
+2. 增加配置文件中的 `connection_timeout` 值
+3. 使用Ollama本地模型避免网络延迟
