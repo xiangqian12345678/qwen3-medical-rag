@@ -61,9 +61,64 @@ class RAGSystem:
 
         【输出示例】
         {
-            "answer": "根据知识图谱，阿司匹林主要用于治疗头痛、发热等症状...",
-            "kg_results": [...],
-            "similar_entities": [...],
+            "answer": "根据知识图谱，阿司匹林主要用于治疗头痛、发热等症状，也可用于预防心脑血管疾病。作为非甾体抗炎药，阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。",
+            "kg_results": [
+                {
+                    "source": {
+                        "id": "entity_001",
+                        "name": "阿司匹林",
+                        "type": "药物",
+                        "properties": {
+                            "dosage": "每日75-100mg",
+                            "contraindications": "溃疡病、出血倾向"
+                        }
+                    },
+                    "target": {
+                        "id": "entity_002",
+                        "name": "头痛",
+                        "type": "症状",
+                        "properties": {
+                            "description": "头部疼痛的常见症状"
+                        }
+                    },
+                    "relation": {
+                        "type": "治疗",
+                        "properties": {
+                            "effectiveness": "高效",
+                            "onset_time": "30分钟内起效"
+                        }
+                    },
+                    "source_doc": "药品说明书_阿司匹林.pdf"
+                },
+                {
+                    "source": {
+                        "id": "entity_001",
+                        "name": "阿司匹林",
+                        "type": "药物",
+                        "properties": {
+                            "dosage": "每日75-100mg",
+                            "contraindications": "溃疡病、出血倾向"
+                        }
+                    },
+                    "target": {
+                        "id": "entity_003",
+                        "name": "心肌梗死",
+                        "type": "疾病",
+                        "properties": {
+                            "description": "冠状动脉急性闭塞导致的心肌坏死"
+                        }
+                    },
+                    "relation": {
+                        "type": "预防",
+                        "properties": {
+                            "effectiveness": "显著",
+                            "usage": "长期小剂量服用"
+                        }
+                    },
+                    "source_doc": "临床指南_心血管疾病预防.pdf"
+                }
+            ],
+            "similar_entities_count": 5,
             "processing_time": 2.34
         }
         """
@@ -90,7 +145,6 @@ class RAGSystem:
         ]
 
         all_similar_entity_ids = set()
-
         for entity_text in entity_texts:
             similar_entities = self.search.search_similar_entities(
                 entity_text,

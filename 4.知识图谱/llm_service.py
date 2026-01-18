@@ -78,17 +78,17 @@ class LLMService:
 
         # 构建提示词
         prompt = f"""
-你是一个专业的知识图谱工程师，请从以下文本中提取实体和关系，严格按照以下要求：
-1. 只提取文本中明确提到的实体和关系
-2. 使用JSON格式输出，包含两个列表："entities"和"relationships"
-3. 实体格式：{{"id": "唯一ID", "name": "实体名称", "type": "实体类型", "properties": {{"属性名": "属性值"}}}}
-4. 关系格式：{{"source": "源实体ID", "target": "目标实体ID", "type": "关系类型", "properties": {{"属性名": "属性值"}}}}
-5. 实体类型必须是以下之一：{', '.join(entity_types)}
-6. 关系类型必须是以下之一：{', '.join(relation_types)}
-
-文本内容：
-{text}
-"""
+        你是一个专业的知识图谱工程师，请从以下文本中提取实体和关系，严格按照以下要求：
+        1. 只提取文本中明确提到的实体和关系
+        2. 使用JSON格式输出，包含两个列表："entities"和"relationships"
+        3. 实体格式：{{"id": "唯一ID", "name": "实体名称", "type": "实体类型", "properties": {{"属性名": "属性值"}}}}
+        4. 关系格式：{{"source": "源实体ID", "target": "目标实体ID", "type": "关系类型", "properties": {{"属性名": "属性值"}}}}
+        5. 实体类型必须是以下之一：{', '.join(entity_types)}
+        6. 关系类型必须是以下之一：{', '.join(relation_types)}
+        
+        文本内容：
+        {text}
+        """
 
         try:
             response = self.client.chat.completions.create(
@@ -113,11 +113,88 @@ class LLMService:
         """
         解析JSON格式的响应
 
-        【输入示例】
-        content = '{"entities": [...], "relationships": [...]}'
+        【场景1: 标准JSON响应】
+        输入示例：
+        content = '''根据分析，从文本中提取到以下实体和关系：
 
-        【输出示例】
-        {"entities": [...], "relationships": [...]}
+        {
+            "entities": [
+                {"id": "e1", "name": "阿司匹林", "type": "药物", "properties": {"成分": "乙酰水杨酸"}},
+                {"id": "e2", "name": "头痛", "type": "症状", "properties": {}},
+                {"id": "e3", "name": "发热", "type": "症状", "properties": {}}
+            ],
+            "relationships": [
+                {"source": "e1", "target": "e2", "type": "治疗", "properties": {}},
+                {"source": "e1", "target": "e3", "type": "治疗", "properties": {}}
+            ]
+        }'''
+
+        输出示例：
+        {
+            "entities": [
+                {"id": "e1", "name": "阿司匹林", "type": "药物", "properties": {"成分": "乙酰水杨酸"}},
+                {"id": "e2", "name": "头痛", "type": "症状", "properties": {}},
+                {"id": "e3", "name": "发热", "type": "症状", "properties": {}}
+            ],
+            "relationships": [
+                {"source": "e1", "target": "e2", "type": "治疗", "properties": {}},
+                {"source": "e1", "target": "e3", "type": "治疗", "properties": {}}
+            ]
+        }
+
+        【场景2: 带格式问题的JSON】
+        输入示例：
+        content = '''分析结果如下：
+
+        {
+            entities: [
+                {id: "e1", name: "阿司匹林", type: "药物", properties: {}},
+                {id: "e2", name: "头痛", type: "症状", properties: {}}
+            ],
+            relationships: [
+                {source: "e1", target: "e2", type: "治疗", properties: {},}
+            ],
+        }'''
+
+        输出示例：
+        {
+            "entities": [
+                {"id": "e1", "name": "阿司匹林", "type": "药物", "properties": {}},
+                {"id": "e2", "name": "头痛", "type": "症状", "properties": {}}
+            ],
+            "relationships": [
+                {"source": "e1", "target": "e2", "type": "治疗", "properties": {}}
+            ]
+        }
+
+        【场景3: 纯JSON字符串】
+        输入示例：
+        content = '{"entities": [{"id": "e1", "name": "布洛芬", "type": "药物", "properties": {}}], "relationships": []}'
+
+        输出示例：
+        {
+            "entities": [{"id": "e1", "name": "布洛芬", "type": "药物", "properties": {}}],
+            "relationships": []
+        }
+
+        【场景4: 未找到有效JSON】
+        输入示例：
+        content = "抱歉，我无法从这段文本中提取出有效的实体和关系信息。"
+
+        输出示例：
+        {"entities": [], "relationships": []}
+
+        【场景5: JSON解析失败】
+        输入示例：
+        content = '''分析结果：
+
+        {
+            "entities": [{"id": "e1", "name": "感冒灵", "type": "药物", "properties": {"成分": "..."}}],
+            "relationships": [invalid json here]
+        }'''
+
+        输出示例：
+        {"entities": [], "relationships": []}
         """
         try:
             # 查找JSON部分
@@ -156,16 +233,16 @@ class LLMService:
         "阿司匹林主要用于镇痛、解热和抗炎作用，常用于治疗头痛、关节痛、发热等症状..."
         """
         prompt = f"""
-请基于以下背景信息回答问题，如果背景信息不足以回答问题，请说明：
-
-背景信息：
-{context}
-
-问题：
-{question}
-
-请给出专业、准确的回答：
-"""
+        请基于以下背景信息回答问题，如果背景信息不足以回答问题，请说明：
+        
+        背景信息：
+        {context}
+        
+        问题：
+        {question}
+        
+        请给出专业、准确的回答：
+        """
 
         try:
             response = self.client.chat.completions.create(
@@ -191,12 +268,29 @@ class LLMService:
 
         【输入示例】
         question = "阿司匹林可以治疗什么？"
-        kg_results = [{"source": "阿司匹林", "target": "头痛", "type": "治疗"}]
-        vdb_results = ["阿司匹林是一种常用药物..."]
+        kg_results = [
+            {
+                "source": "阿司匹林",
+                "source_type": "药物",
+                "relationship": "治疗",
+                "target": "头痛",
+                "target_type": "症状",
+                "rel_properties": {}
+            },
+            {
+                "source": "阿司匹林",
+                "source_type": "药物",
+                "relationship": "治疗",
+                "target": "发热",
+                "target_type": "症状",
+                "rel_properties": {}
+            }
+        ]
+        vdb_results = ["阿司匹林", "阿司匹林"]  # 从kg_results中提取的源实体名称列表
         answer = service.generate_rag_answer(question, kg_results, vdb_results)
 
         【输出示例】
-        "根据知识图谱，阿司匹林与头痛之间存在治疗关系..."
+        "根据知识图谱和医学文献，阿司匹林可以治疗头痛、发热等症状。作为非甾体抗炎药，阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。常用于治疗头痛、关节痛、肌肉痛、发热等症状。此外，长期小剂量服用阿司匹林还可用于预防心脑血管疾病，如心肌梗死和脑卒中的二级预防。"
         """
         # 构建知识图谱描述
         kg_desc = ""
@@ -213,17 +307,17 @@ class LLMService:
                 vdb_desc += f"片段{i+1}: {doc[:200]}...\n"
 
         prompt = f"""
-你是一个专业的知识问答助手，请基于以下信息回答用户问题：
-
-{kg_desc}
-
-{vdb_desc}
-
-用户问题：
-{question}
-
-请给出专业、准确的回答：
-"""
+        你是一个专业的知识问答助手，请基于以下信息回答用户问题：
+        
+        {kg_desc}
+        
+        {vdb_desc}
+        
+        用户问题：
+        {question}
+        
+        请给出专业、准确的回答：
+        """
 
         try:
             response = self.client.chat.completions.create(
@@ -277,5 +371,42 @@ if __name__ == "__main__":
     answer = service.generate_answer(question, context)
     print(f"问题: {question}")
     print(f"答案: {answer}")
+
+    # 示例3: 生成RAG整合答案
+    print("\n示例3: 生成RAG整合答案")
+    rag_question = "阿司匹林可以治疗什么？"
+    kg_results = [
+        {
+            "source": "阿司匹林",
+            "source_type": "药物",
+            "relationship": "治疗",
+            "target": "头痛",
+            "target_type": "症状",
+            "rel_properties": {}
+        },
+        {
+            "source": "阿司匹林",
+            "source_type": "药物",
+            "relationship": "治疗",
+            "target": "发热",
+            "target_type": "症状",
+            "rel_properties": {}
+        },
+        {
+            "source": "阿司匹林",
+            "source_type": "药物",
+            "relationship": "治疗",
+            "target": "关节痛",
+            "target_type": "症状",
+            "rel_properties": {}
+        }
+    ]
+    vdb_results = [
+        "阿司匹林是一种非甾体抗炎药，具有镇痛、解热、抗炎作用，主要用于治疗轻至中度疼痛如头痛、关节痛、肌肉痛、牙痛等。",
+        "阿司匹林通过抑制环氧化酶减少前列腺素的合成，从而发挥解热镇痛抗炎作用。"
+    ]
+    rag_answer = service.generate_rag_answer(rag_question, kg_results, vdb_results)
+    print(f"问题: {rag_question}")
+    print(f"答案: {rag_answer}")
 
     service.close()

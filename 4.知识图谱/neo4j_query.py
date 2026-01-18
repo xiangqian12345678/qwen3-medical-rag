@@ -155,16 +155,16 @@ class Neo4jQuery:
         results = query.query_by_entities([123, 456], depth=2)
 
         【输出示例】
-        [
             {
                 "source": "阿司匹林",
                 "source_type": "药物",
                 "relationship": "治疗",
                 "target": "头痛",
                 "target_type": "症状",
-                "rel_properties": {}
-            }
-        ]
+                "rel_properties": {
+                    'embedding': [-0.02545723206106859, ......, -0.03518568902721352, -0.020791543516080715]
+                }
+            }        ]
         """
         if not self.driver or not entity_ids:
             return []

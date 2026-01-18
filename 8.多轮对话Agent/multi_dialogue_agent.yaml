@@ -29,8 +29,9 @@ embedding:
 
 llm:
   provider: ollama
-  model: qwen3:4b
+  api_key:
   base_url: http://localhost:11434
+  model: qwen3:4b
   temperature: 0.1
   max_tokens: 2048
 
