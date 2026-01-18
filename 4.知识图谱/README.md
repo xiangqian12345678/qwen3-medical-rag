@@ -12,6 +12,7 @@
 - **图查询**：关键字搜索、最短路径、子图查询等高级功能
 - **RAG整合**：结合知识图谱和向量检索生成准确答案
 - **配置化管理**：统一的配置管理和知识图谱Schema定义
+- **模块化配置**：使用YAML格式，按功能模块组织配置
 
 ## 功能特性
 
@@ -65,19 +66,19 @@
 ```
 4.知识图谱/
 ├── config/                        # 配置文件目录
-│   ├── config.json               # Neo4j连接配置、API密钥等
+│   ├── kg_config.yaml             # 知识图谱配置文件（YAML格式）
 │   └── kg_schema.json            # 知识图谱模式（实体类型和关系类型）
 ├── config.py                     # 配置管理模块
-├── neo4j_connection.py          # Neo4j数据库连接管理 (150行)
-├── embedding_service.py         # 嵌入向量生成服务 (200行)
-├── llm_service.py               # 大模型服务 (280行)
-├── neo4j_operations.py          # 基础数据库CRUD操作 (300行)
-├── neo4j_query.py               # 图查询功能 (420行)
-├── neo4j_save.py                # 数据保存功能 (200行)
-├── vector_search.py             # 向量相似度检索 (280行)
-├── rag_system.py                # RAG系统整合 (200行)
-├── text_processor.py            # 文本处理功能 (180行)
-├── main.py                      # 主程序和示例 (360行)
+├── neo4j_connection.py          # Neo4j数据库连接管理
+├── embedding_service.py         # 嵌入向量生成服务
+├── llm_service.py               # 大模型服务
+├── neo4j_operations.py          # 基础数据库CRUD操作
+├── neo4j_query.py               # 图查询功能
+├── neo4j_save.py                # 数据保存功能
+├── vector_search.py             # 向量相似度检索
+├── rag_system.py                # RAG系统整合
+├── text_processor.py            # 文本处理功能
+├── main.py                      # 主程序和示例
 ├── demo_quick_start.py          # 快速开始演示
 ├── test_basic.py                # 基础功能测试
 └── README.md                    # 本文档
@@ -109,28 +110,60 @@ pip install -r requirements.txt
 
 ### 2. 配置数据库
 
-编辑 `config/config.json`，设置Neo4j数据库连接信息和API密钥：
+编辑 `config/kg_config.yaml`，设置Neo4j数据库连接信息和API密钥：
 
-```json
-{
-  "NEO4J_URI": "bolt://localhost:7687",
-  "NEO4J_USER": "neo4j",
-  "NEO4J_PASSWORD": "12345678",
-  "DASHSCOPE_API_KEY": "your-api-key-here"
-}
+```yaml
+neo4j:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: "12345678"
+  database: neo4j
+  max_connection_lifetime: 3600
+  max_connection_pool_size: 50
+  connection_timeout: 30.0
+  acquisition_timeout: 60.0
+
+llm:
+  provider: dashscope
+  api_key: your-api-key-here
+  api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  temperature: 0.3
+  max_tokens: 2048
+
+embedding:
+  provider: dashscope
+  url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+  model: text-embedding-v2
+  dimension: 1536
+
+knowledge_graph:
+  schema_file: config/kg_schema.json
+  vector_index_path: knowledge_index/kg_vector_index.pkl
+  chunk_size: 1000
+  chunk_overlap: 100
+  graph_top_k: 10
+  similarity_threshold: 0.7
+
+rag:
+  depth: 2
+  top_k: 5
+  max_tokens: 1024
+  cache_enabled: true
+  console_debug: true
 ```
 
 配置项说明：
 
 | 配置项 | 说明 | 默认值 |
 |-------|------|--------|
-| NEO4J_URI | Neo4j数据库地址 | bolt://localhost:7687 |
-| NEO4J_USER | Neo4j用户名 | neo4j |
-| NEO4J_PASSWORD | Neo4j密码 | 12345678 |
-| DASHSCOPE_API_KEY | 通义千问API密钥 | (需配置) |
-| EMBEDDING_MODEL | 嵌入模型名称 | text-embedding-v2 |
-| GRAPH_TOP_K | 图查询返回数量 | 10 |
-| SIMILARITY_THRESHOLD | 相似度阈值 | 0.7 |
+| neo4j.uri | Neo4j数据库地址 | bolt://localhost:7687 |
+| neo4j.user | Neo4j用户名 | neo4j |
+| neo4j.password | Neo4j密码 | 12345678 |
+| llm.api_key | 通义千问API密钥 | (需配置) |
+| embedding.model | 嵌入模型名称 | text-embedding-v2 |
+| knowledge_graph.graph_top_k | 图查询返回数量 | 10 |
+| knowledge_graph.similarity_threshold | 相似度阈值 | 0.7 |
 
 ### 3. 配置知识图谱Schema
 
@@ -186,6 +219,52 @@ python main.py
 # 快速开始演示
 python demo_quick_start.py
 ```
+
+## 配置使用说明
+
+### 配置类说明
+
+系统提供了多个专用的配置类，每个类负责特定功能模块的配置：
+
+```python
+from config import (
+    config,              # 全局配置对象（向后兼容）
+    neo4j_config,        # Neo4j配置
+    llm_config,          # 大模型配置
+    embedding_config,    # 嵌入服务配置
+    kg_config,           # 知识图谱配置
+    rag_config           # RAG系统配置
+)
+```
+
+### 配置访问方式
+
+```python
+# 方式1: 使用全局配置对象（向后兼容）
+uri = config.NEO4J_URI  # 仍然支持旧的大写命名方式
+api_key = config.DASHSCOPE_API_KEY
+
+# 方式2: 使用功能配置类
+uri = neo4j_config.uri
+user = neo4j_config.user
+password = neo4j_config.password
+
+# 方式3: 使用点号分隔的路径
+uri = config.get("neo4j.uri")
+user = config.get("neo4j.user")
+
+# 方式4: 获取整个配置区块
+neo4j_settings = config.get_section("neo4j")
+```
+
+### 配置类特性
+
+- **模块化**: 不同功能的配置分离，便于管理和维护
+- **可读性**: YAML 格式支持注释，比 JSON 更易读
+- **类型安全**: 配置类提供类型化的属性访问
+- **向后兼容**: 保留了旧的配置访问方式，不破坏现有代码
+- **可扩展性**: 新增功能只需添加新的配置区块和配置类
+- **一致性**: 与项目其他模块的配置风格保持一致
 
 ## 使用示例
 
@@ -361,23 +440,36 @@ conn.close()
 配置管理类，负责加载和管理配置参数。
 
 ```python
-from config import Config, KGSchema
+from config import config
 
-# 配置管理
-config = Config("config/config.json")
-neo4j_uri = config.get("NEO4J_URI")
-
-# 知识图谱Schema
-kg_schema = KGSchema("config/kg_schema.json")
-entity_types = kg_schema.get_entity_types()
-relationship_types = kg_schema.get_relationship_types()
+# 配置访问
+neo4j_uri = config.get("neo4j.uri")
+neo4j_section = config.get_section("neo4j")
 ```
 
 **Config 类方法:**
 
 | 方法 | 说明 | 返回值 |
 |-----|------|--------|
-| `get(key, default)` | 获取配置项 | 配置值 |
+| `get(key, default)` | 获取配置项，支持点号分隔路径 | 配置值 |
+| `get_section(section_name)` | 获取整个配置区块 | Dict |
+
+**配置类方法:**
+
+所有配置类（Neo4jConfig、LLMConfig等）都支持通过属性直接访问配置值。
+
+### KGSchema 类
+
+知识图谱Schema管理类。
+
+```python
+from config import KGSchema
+
+# 知识图谱Schema
+kg_schema = KGSchema("config/kg_schema.json")
+entity_types = kg_schema.get_entity_types()
+relationship_types = kg_schema.get_relationship_types()
+```
 
 **KGSchema 类方法:**
 
@@ -469,6 +561,12 @@ RAG系统整合类。
    - 模块间低耦合
    - 易于维护和扩展
 
+5. **配置管理规范**
+   - 使用YAML格式配置文件
+   - 按功能模块区分配置区块
+   - 配置项使用小写加下划线命名风格
+   - 提供专用的配置类
+
 ## 依赖要求
 
 ```
@@ -477,6 +575,7 @@ openai>=1.0.0
 httpx>=0.24.0
 numpy>=1.24.0
 scikit-learn>=1.3.0
+pyyaml>=6.0.2
 ```
 
 ## 注意事项
@@ -488,7 +587,7 @@ scikit-learn>=1.3.0
 
 2. **API密钥**
    - 需要配置有效的通义千问API密钥
-   - 密钥配置在config/config.json中
+   - 密钥配置在config/kg_config.yaml中
 
 3. **首次运行**
    - 首次运行会从数据库加载所有嵌入向量
@@ -499,6 +598,11 @@ scikit-learn>=1.3.0
    - 使用缓存机制减少API调用
    - 支持批量操作
    - 大规模知识库建议增加内存配置
+
+5. **配置管理**
+   - 推荐使用新的配置类（neo4j_config、llm_config等）
+   - 旧的配置访问方式仍然可用，但建议逐步迁移
+   - 配置文件支持注释，便于理解和维护
 
 ## 文件统计
 
@@ -529,5 +633,7 @@ scikit-learn>=1.3.0
 ✅ 不包含前端展示内容
 ✅ 所有函数都有输入输出示例和代码注释
 ✅ 配置文件已整理到config目录
+✅ 使用YAML格式配置文件，支持模块化配置
+✅ 提供专用配置类，类型安全的配置访问
 
 所有代码都已经过精心设计，可以直接使用。建议先运行test_basic.py测试基础功能，然后运行main.py查看完整示例。

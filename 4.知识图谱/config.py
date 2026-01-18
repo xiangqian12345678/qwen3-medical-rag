@@ -2,8 +2,9 @@
 配置管理模块
 """
 import os
-import yaml
 from typing import List, Dict, Any
+
+import yaml
 
 
 class Config:
@@ -88,40 +89,10 @@ class Config:
         return self.config.get(section, {})
 
     def __getattr__(self, name: str):
-        """通过属性方式访问配置（向后兼容）"""
-        # 检查是否是直接的顶级配置项
+        """通过属性方式访问配置"""
         if name in self.config:
             return self.config[name]
-
-        # 检查是否是区块的属性（向后兼容旧的配置方式）
-        sections = {
-            'NEO4J_URI': ('neo4j', 'uri'),
-            'NEO4J_USER': ('neo4j', 'user'),
-            'NEO4J_PASSWORD': ('neo4j', 'password'),
-            'NEO4J_DATABASE': ('neo4j', 'database'),
-            'NEO4J_MAX_CONNECTION_LIFETIME': ('neo4j', 'max_connection_lifetime'),
-            'NEO4J_MAX_CONNECTION_POOL_SIZE': ('neo4j', 'max_connection_pool_size'),
-            'NEO4J_CONNECTION_TIMEOUT': ('neo4j', 'connection_timeout'),
-            'NEO4J_ACQUISITION_TIMEOUT': ('neo4j', 'acquisition_timeout'),
-            'DASHSCOPE_API_KEY': ('llm', 'api_key'),
-            'DASHSCOPE_API_BASE': ('llm', 'api_base'),
-            'EMBEDDING_URL': ('embedding', 'url'),
-            'EMBEDDING_MODEL': ('embedding', 'model'),
-            'KNOWLEDGE_INDEX': ('knowledge_graph', 'vector_index_path'),
-            'KG_SCHEMA': ('knowledge_graph', 'schema_file'),
-            'CHUNK_SIZE': ('knowledge_graph', 'chunk_size'),
-            'CHUNK_OVERLAP': ('knowledge_graph', 'chunk_overlap'),
-            'GRAPH_TOP_K': ('knowledge_graph', 'graph_top_k'),
-            'SIMILARITY_THRESHOLD': ('knowledge_graph', 'similarity_threshold'),
-        }
-
-        if name in sections:
-            section, key = sections[name]
-            return self.config.get(section, {}).get(key)
-
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
-
-
 
 
 class Neo4jConfig:
