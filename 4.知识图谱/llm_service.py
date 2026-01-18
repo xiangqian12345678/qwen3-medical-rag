@@ -7,7 +7,7 @@ from openai import OpenAI
 import httpx
 import re
 import json
-from config import config, kg_schema
+from config import llm_config, kg_schema
 
 
 class LLMService:
@@ -26,7 +26,7 @@ class LLMService:
         【输出示例】
         None (服务已初始化)
         """
-        self.api_key = api_key or config.DASHSCOPE_API_KEY
+        self.api_key = api_key or llm_config.api_key
 
         # 创建OpenAI兼容客户端
         http_client = httpx.Client(
@@ -36,11 +36,13 @@ class LLMService:
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=config.DASHSCOPE_API_BASE,
+            base_url=llm_config.api_base,
             http_client=http_client
         )
 
-        self.model = "qwen-plus"
+        self.model = llm_config.model
+        self.temperature = llm_config.temperature
+        self.max_tokens = llm_config.max_tokens
 
     def extract_entities_relations(self, text: str, entity_types: List[str] = None,
                                    relation_types: List[str] = None) -> Dict:
@@ -172,8 +174,8 @@ class LLMService:
                     {"role": "system", "content": "你是一个专业的知识问答助手"},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=max_tokens,
-                temperature=0.3
+                max_tokens=max_tokens or self.max_tokens,
+                temperature=self.temperature
             )
 
             return response.choices[0].message.content.strip()
@@ -230,8 +232,8 @@ class LLMService:
                     {"role": "system", "content": "你是一个专业的知识问答助手"},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1024,
-                temperature=0.35
+                max_tokens=self.max_tokens,
+                temperature=self.temperature
             )
 
             return response.choices[0].message.content.strip()

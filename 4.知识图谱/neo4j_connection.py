@@ -4,7 +4,7 @@ Neo4j数据库连接模块
 """
 from typing import Optional
 from neo4j import GraphDatabase, basic_auth
-from config import config
+from config import neo4j_config
 
 
 class Neo4jConnection:
@@ -28,11 +28,11 @@ class Neo4jConnection:
         【输出示例】
         ✅ Neo4j连接成功
         """
-        self.uri = uri or config.NEO4J_URI
-        self.user = user or config.NEO4J_USER
-        self.password = password or config.NEO4J_PASSWORD
+        self.uri = uri or neo4j_config.uri
+        self.user = user or neo4j_config.user
+        self.password = password or neo4j_config.password
         # 默认使用 neo4j 数据库,避免创建数据库的问题
-        self.database = database or config.get("NEO4J_DATABASE", "neo4j")
+        self.database = database or neo4j_config.database
         self.driver: Optional[GraphDatabase.driver] = None
 
     def connect(self) -> bool:
@@ -51,9 +51,9 @@ class Neo4jConnection:
             self.driver = GraphDatabase.driver(
                 self.uri,
                 auth=basic_auth(self.user, self.password),
-                max_connection_lifetime=getattr(config, 'NEO4J_MAX_CONNECTION_LIFETIME', 3600),
-                max_connection_pool_size=getattr(config, 'NEO4J_MAX_CONNECTION_POOL_SIZE', 50),
-                connection_timeout=getattr(config, 'NEO4J_CONNECTION_TIMEOUT', 30.0)
+                max_connection_lifetime=neo4j_config.max_connection_lifetime,
+                max_connection_pool_size=neo4j_config.max_connection_pool_size,
+                connection_timeout=neo4j_config.connection_timeout
             )
 
             # 直接连接到目标数据库进行测试

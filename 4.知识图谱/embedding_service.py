@@ -4,7 +4,7 @@
 """
 from typing import List
 import httpx
-from config import config
+from config import embedding_config, llm_config
 
 
 class EmbeddingService:
@@ -23,9 +23,10 @@ class EmbeddingService:
         【输出示例】
         None (服务已初始化)
         """
-        self.api_key = api_key or config.DASHSCOPE_API_KEY
-        self.api_url = config.EMBEDDING_URL
-        self.model = config.EMBEDDING_MODEL
+        self.api_key = api_key or llm_config.api_key
+        self.api_url = embedding_config.url
+        self.model = embedding_config.model
+        self.dimension = embedding_config.dimension
         self.cache = {}  # 嵌入缓存
 
         # 创建HTTP客户端

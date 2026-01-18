@@ -2,8 +2,8 @@
 配置管理模块
 """
 import os
-import json
-from typing import List, Dict
+import yaml
+from typing import List, Dict, Any
 
 
 class Config:
@@ -14,7 +14,7 @@ class Config:
         初始化配置
 
         【输入示例】
-        config = Config("config/config.json")
+        config = Config("config/kg_config.yaml")
 
         【输出示例】
         None (配置对象已初始化)
@@ -23,29 +23,29 @@ class Config:
         if config_file is None:
             # 获取脚本所在目录
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            config_file = os.path.join(script_dir, "config", "config.json")
+            config_file = os.path.join(script_dir, "config", "kg_config.yaml")
 
         self.config_file = config_file
         self.config = self._load_config()
 
     def _load_config(self) -> dict:
         """
-        从JSON文件加载配置
+        从YAML文件加载配置
 
         【输入示例】
         无
 
         【输出示例】
         {
-            "NEO4J_URI": "bolt://localhost:7687",
-            "NEO4J_USER": "neo4j",
-            "NEO4J_PASSWORD": "12345678",
+            "neo4j": {...},
+            "llm": {...},
+            "embedding": {...},
             ...
         }
         """
         if os.path.exists(self.config_file):
             with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                return yaml.safe_load(f)
         return {}
 
     def get(self, key: str, default=None):
@@ -53,18 +53,261 @@ class Config:
         获取配置项
 
         【输入示例】
-        config.get("NEO4J_URI", "bolt://localhost:7687")
+        config.get("neo4j.uri", "bolt://localhost:7687")
 
         【输出示例】
         "bolt://localhost:7687"
         """
+        # 支持点号分隔的路径，如 "neo4j.uri"
+        if '.' in key:
+            parts = key.split('.')
+            value = self.config
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    return default
+            return value
         return self.config.get(key, default)
 
+    def get_section(self, section: str) -> Dict[str, Any]:
+        """
+        获取配置区块
+
+        【输入示例】
+        neo4j_config = config.get_section("neo4j")
+
+        【输出示例】
+        {
+            "uri": "bolt://localhost:7687",
+            "user": "neo4j",
+            "password": "12345678",
+            ...
+        }
+        """
+        return self.config.get(section, {})
+
     def __getattr__(self, name: str):
-        """通过属性方式访问配置"""
+        """通过属性方式访问配置（向后兼容）"""
+        # 检查是否是直接的顶级配置项
         if name in self.config:
             return self.config[name]
+
+        # 检查是否是区块的属性（向后兼容旧的配置方式）
+        sections = {
+            'NEO4J_URI': ('neo4j', 'uri'),
+            'NEO4J_USER': ('neo4j', 'user'),
+            'NEO4J_PASSWORD': ('neo4j', 'password'),
+            'NEO4J_DATABASE': ('neo4j', 'database'),
+            'NEO4J_MAX_CONNECTION_LIFETIME': ('neo4j', 'max_connection_lifetime'),
+            'NEO4J_MAX_CONNECTION_POOL_SIZE': ('neo4j', 'max_connection_pool_size'),
+            'NEO4J_CONNECTION_TIMEOUT': ('neo4j', 'connection_timeout'),
+            'NEO4J_ACQUISITION_TIMEOUT': ('neo4j', 'acquisition_timeout'),
+            'DASHSCOPE_API_KEY': ('llm', 'api_key'),
+            'DASHSCOPE_API_BASE': ('llm', 'api_base'),
+            'EMBEDDING_URL': ('embedding', 'url'),
+            'EMBEDDING_MODEL': ('embedding', 'model'),
+            'KNOWLEDGE_INDEX': ('knowledge_graph', 'vector_index_path'),
+            'KG_SCHEMA': ('knowledge_graph', 'schema_file'),
+            'CHUNK_SIZE': ('knowledge_graph', 'chunk_size'),
+            'CHUNK_OVERLAP': ('knowledge_graph', 'chunk_overlap'),
+            'GRAPH_TOP_K': ('knowledge_graph', 'graph_top_k'),
+            'SIMILARITY_THRESHOLD': ('knowledge_graph', 'similarity_threshold'),
+        }
+
+        if name in sections:
+            section, key = sections[name]
+            return self.config.get(section, {}).get(key)
+
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+
+
+
+class Neo4jConfig:
+    """Neo4j数据库配置类"""
+
+    def __init__(self, config: Config = None):
+        """
+        初始化Neo4j配置
+
+        【输入示例】
+        neo4j_config = Neo4jConfig(config)
+        """
+        self.config = config or Config()
+        self.neo4j_config = self.config.get_section("neo4j")
+
+    @property
+    def uri(self) -> str:
+        return self.neo4j_config.get("uri", "bolt://localhost:7687")
+
+    @property
+    def user(self) -> str:
+        return self.neo4j_config.get("user", "neo4j")
+
+    @property
+    def password(self) -> str:
+        return self.neo4j_config.get("password", "")
+
+    @property
+    def database(self) -> str:
+        return self.neo4j_config.get("database", "neo4j")
+
+    @property
+    def max_connection_lifetime(self) -> int:
+        return self.neo4j_config.get("max_connection_lifetime", 3600)
+
+    @property
+    def max_connection_pool_size(self) -> int:
+        return self.neo4j_config.get("max_connection_pool_size", 50)
+
+    @property
+    def connection_timeout(self) -> float:
+        return self.neo4j_config.get("connection_timeout", 30.0)
+
+    @property
+    def acquisition_timeout(self) -> float:
+        return self.neo4j_config.get("acquisition_timeout", 60.0)
+
+
+class LLMConfig:
+    """大模型配置类"""
+
+    def __init__(self, config: Config = None):
+        """
+        初始化大模型配置
+
+        【输入示例】
+        llm_config = LLMConfig(config)
+        """
+        self.config = config or Config()
+        self.llm_config = self.config.get_section("llm")
+
+    @property
+    def provider(self) -> str:
+        return self.llm_config.get("provider", "dashscope")
+
+    @property
+    def api_key(self) -> str:
+        return self.llm_config.get("api_key", "")
+
+    @property
+    def api_base(self) -> str:
+        return self.llm_config.get("api_base", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+
+    @property
+    def model(self) -> str:
+        return self.llm_config.get("model", "qwen-plus")
+
+    @property
+    def temperature(self) -> float:
+        return self.llm_config.get("temperature", 0.3)
+
+    @property
+    def max_tokens(self) -> int:
+        return self.llm_config.get("max_tokens", 2048)
+
+
+class EmbeddingConfig:
+    """嵌入模型配置类"""
+
+    def __init__(self, config: Config = None):
+        """
+        初始化嵌入配置
+
+        【输入示例】
+        embedding_config = EmbeddingConfig(config)
+        """
+        self.config = config or Config()
+        self.embedding_config = self.config.get_section("embedding")
+
+    @property
+    def provider(self) -> str:
+        return self.embedding_config.get("provider", "dashscope")
+
+    @property
+    def url(self) -> str:
+        return self.embedding_config.get("url", "")
+
+    @property
+    def model(self) -> str:
+        return self.embedding_config.get("model", "text-embedding-v2")
+
+    @property
+    def dimension(self) -> int:
+        return self.embedding_config.get("dimension", 1536)
+
+
+class KGConfig:
+    """知识图谱配置类"""
+
+    def __init__(self, config: Config = None):
+        """
+        初始化知识图谱配置
+
+        【输入示例】
+        kg_config = KGConfig(config)
+        """
+        self.config = config or Config()
+        self.kg_config = self.config.get_section("knowledge_graph")
+
+    @property
+    def schema_file(self) -> str:
+        return self.kg_config.get("schema_file", "config/kg_schema.json")
+
+    @property
+    def vector_index_path(self) -> str:
+        return self.kg_config.get("vector_index_path", "knowledge_index/kg_vector_index.pkl")
+
+    @property
+    def chunk_size(self) -> int:
+        return self.kg_config.get("chunk_size", 1000)
+
+    @property
+    def chunk_overlap(self) -> int:
+        return self.kg_config.get("chunk_overlap", 100)
+
+    @property
+    def graph_top_k(self) -> int:
+        return self.kg_config.get("graph_top_k", 10)
+
+    @property
+    def similarity_threshold(self) -> float:
+        return self.kg_config.get("similarity_threshold", 0.7)
+
+
+class RAGConfig:
+    """RAG系统配置类"""
+
+    def __init__(self, config: Config = None):
+        """
+        初始化RAG配置
+
+        【输入示例】
+        rag_config = RAGConfig(config)
+        """
+        self.config = config or Config()
+        self.rag_config = self.config.get_section("rag")
+
+    @property
+    def depth(self) -> int:
+        return self.rag_config.get("depth", 2)
+
+    @property
+    def top_k(self) -> int:
+        return self.rag_config.get("top_k", 5)
+
+    @property
+    def max_tokens(self) -> int:
+        return self.rag_config.get("max_tokens", 1024)
+
+    @property
+    def cache_enabled(self) -> bool:
+        return self.rag_config.get("cache_enabled", True)
+
+    @property
+    def console_debug(self) -> bool:
+        return self.rag_config.get("console_debug", True)
 
 
 class KGSchema:
@@ -104,6 +347,7 @@ class KGSchema:
         """
         if os.path.exists(self.schema_file):
             with open(self.schema_file, 'r', encoding='utf-8') as f:
+                import json
                 return json.load(f)
         return {}
 
@@ -219,4 +463,9 @@ class KGSchema:
 
 # 创建全局配置实例
 config = Config()
+neo4j_config = Neo4jConfig(config)
+llm_config = LLMConfig(config)
+embedding_config = EmbeddingConfig(config)
+kg_config = KGConfig(config)
+rag_config = RAGConfig(config)
 kg_schema = KGSchema()

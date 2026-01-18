@@ -1,0 +1,40 @@
+neo4j:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: "12345678"
+  database: neo4j
+  max_connection_lifetime: 3600
+  max_connection_pool_size: 50
+  connection_timeout: 30.0
+  acquisition_timeout: 60.0
+
+llm:
+  provider: dashscope
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  temperature: 0.3
+  max_tokens: 2048
+
+embedding:
+  provider: dashscope
+  model: text-embedding-v2
+  url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+  dimension: 1536
+
+knowledge_graph:
+  schema_file: config/kg_schema.json
+  vector_index_path: knowledge_index/kg_vector_index.pkl
+  chunk_size: 1000
+  chunk_overlap: 100
+  graph_top_k: 10
+  similarity_threshold: 0.7
+
+rag:
+  depth: 2
+  top_k: 5
+  max_tokens: 1024
+  cache_enabled: true
+  console_debug: true
+
+_note: "社区版本不支持创建数据库，必须使用默认数据库 neo4j"
