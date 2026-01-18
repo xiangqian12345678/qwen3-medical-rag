@@ -2,15 +2,14 @@
 主程序入口
 提供完整的基于知识图谱的RAG单轮会话示例
 """
+from embedding_service import EmbeddingService
+from llm_service import LLMService
 from neo4j_connection import Neo4jConnection
 from neo4j_operations import Neo4jOperations
 from neo4j_query import Neo4jQuery
 from neo4j_save import Neo4jSave
 from rag_system import RAGSystem
 from text_processor import TextProcessor
-from embedding_service import EmbeddingService
-from llm_service import LLMService
-from config import kg_schema
 
 
 def example_1_basic_operations():
