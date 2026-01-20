@@ -1,0 +1,21 @@
+# 知识图谱配置
+neo4j:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: "12345678"
+  database: neo4j
+  max_connection_lifetime: 3600
+  max_connection_pool_size: 50
+  connection_timeout: 30.0
+
+llm:
+  provider: dashscope
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  temperature: 0.3
+  max_tokens: 2048
+
+agent:
+  kgraph_search_enabled: true
+  kgraph_search_cnt: 10

@@ -1,0 +1,91 @@
+"""搜索工具函数"""
+import json
+import logging
+import re
+from typing import TYPE_CHECKING
+
+from langchain_core.documents import Document
+from langchain_core.messages import AIMessage
+
+logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    pass
+
+
+def json_to_list_document(text: str):
+    """将JSON转换为Document列表"""
+    # 检查输入是否为空
+    if not text or not text.strip():
+        logger.warning("json_to_list_document: 输入为空字符串")
+        return []
+
+    try:
+        data = json.loads(text)
+        if not isinstance(data, list):
+            logger.warning(f"json_to_list_document: 期望列表,得到 {type(data)}")
+            return []
+        return [Document(**d) for d in data]
+    except json.JSONDecodeError as e:
+        logger.error(f"json_to_list_document: JSON解析失败 - {e}")
+        logger.error(f"输入内容: {text[:500] if len(text) > 500 else text}")
+        return []
+    except Exception as e:
+        logger.error(f"json_to_list_document: 转换失败 - {e}")
+        return []
+
+
+def _should_call_tool(last_ai: AIMessage) -> bool:
+    """判断是否需要调用工具"""
+    return bool(getattr(last_ai, 'tool_calls', None))
+
+
+def strip_think_get_tokens(msg: AIMessage):
+    """移除思考标签并获取token信息"""
+    text = msg.content
+    msg_len = len(msg.content)
+
+    try:
+        msg_token_len = msg.usage_metadata["output_tokens"]
+    except Exception as e1:
+        try:
+            msg_token_len = msg.response_metadata["token_usage"]["output_tokens"]
+        except Exception as e2:
+            msg_token_len = 0
+
+    dur = msg.response_metadata.get("total_duration", 0) / 1e9
+
+    return {
+        "msg": re.sub(r"```thinking\n.*?```", "", text, flags=re.DOTALL).strip(),
+        "msg_len": msg_len,
+        "msg_token_len": msg_token_len,
+        "generate_time": dur
+    }
+
+
+def del_think(text: str) -> str:
+    """移除思考过程标签"""
+    return re.sub(r"```thinking\n.*?```", "", text, flags=re.DOTALL).strip()
+
+
+def format_documents(documents) -> str:
+    """格式化文档为字符串"""
+    parts = []
+    for i, doc in enumerate(documents):
+        if hasattr(doc, 'page_content'):
+            content = doc.page_content
+        elif isinstance(doc, dict):
+            content = doc.get('page_content', str(doc))
+        else:
+            content = str(doc)
+        parts.append(f"## 文档{i + 1}：\n{content}\n")
+    return "".join(parts)
+
+
+def format_document_str(documents) -> str:
+    """格式化文档为字符串（倒序取前6个）"""
+    parts = []
+    for i, d in enumerate(reversed(documents)):
+        if i >= 6:
+            break
+        parts.append(f"## 文档{i + 1}：\n{d.page_content}\n")
+    return "".join(parts)

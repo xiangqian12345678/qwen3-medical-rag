@@ -79,7 +79,7 @@ from 单轮对话代理 import ConfigLoader, SingleDialogueAgent, create_llm_cli
 
 # 加载配置
 config_loader = ConfigLoader()
-config = config_loader.config
+config = config_loader.appConfig
 
 # 创建LLM客户端
 power_llm = create_llm_client(config.llm)

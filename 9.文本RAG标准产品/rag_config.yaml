@@ -1,0 +1,38 @@
+# 全局RAG配置
+agent:
+  max_attempts: 2
+  auto_search_param: true
+  console_debug: false
+  max_ask_num: 5
+
+llm:
+  provider: dashscope
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  temperature: 0.3
+  max_tokens: 2048
+
+data:
+  chunk_field: chunk
+  parent_chunk_field: parent_chunk
+  summary_field: summary
+  questions_field: questions
+  document_field: null
+  source_field: source
+  source_name_field: source_name
+  lt_doc_id_field: lt_doc_id
+  chunk_id_field: chunk_id
+  hash_id_field: hash_id
+
+multi_dialogue_rag:
+  estimate_token_fun: avg
+  llm_max_token: 1024
+  max_token_threshold: 1.01
+  cut_dialogue_scale: 2
+  smith_debug: false
+  console_debug: true
+  thinking_in_context: false
+  cache_time: 60
+  summary_max_length: 500
+  summary_max_cache_count: 3
