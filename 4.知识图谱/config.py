@@ -197,6 +197,10 @@ class EmbeddingConfig:
         return self.embedding_config.get("provider", "dashscope")
 
     @property
+    def api_key(self) -> str:
+        return self.embedding_config.get("api_key", "")
+
+    @property
     def base_url(self) -> str:
         return self.embedding_config.get("base_url", "")
 

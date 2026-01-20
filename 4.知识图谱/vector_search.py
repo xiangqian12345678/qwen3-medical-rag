@@ -220,6 +220,11 @@ class VectorSearch:
         print(f"  向量索引大小: {self.entity_index['embeddings'].shape}")
         print(f"  查询文本: {query_text}")
 
+        # 检查索引是否为空
+        if len(self.entity_index["embeddings"]) == 0:
+            print(f"  ⚠️ 警告: 向量索引为空，无法进行检索")
+            return []
+
         # 生成查询嵌入
         query_embedding = self.embedding_service.generate_embedding(query_text)
         if not query_embedding:
@@ -291,6 +296,11 @@ class VectorSearch:
         """
         threshold = threshold or self.similarity_threshold
         top_k = top_k or self.top_k
+
+        # 检查索引是否为空
+        if len(self.rel_index["embeddings"]) == 0:
+            print(f"  ⚠️ 警告: 关系向量索引为空，无法进行检索")
+            return []
 
         # 生成查询嵌入
         query_embedding = self.embedding_service.generate_embedding(query_text)

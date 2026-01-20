@@ -23,7 +23,7 @@ class EmbeddingService:
         【输出示例】
         None (服务已初始化)
         """
-        self.api_key = api_key or llm_config.api_key
+        self.api_key = api_key or embedding_config.api_key
         self.api_url = embedding_config.base_url
         self.model = embedding_config.model
         self.dimension = embedding_config.dimension
