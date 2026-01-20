@@ -30,7 +30,8 @@ class DenseFieldConfig(BaseModel):
     dimension: int = 1024
     model: str = "bge-m3:latest"
     base_url: str = "http://localhost:11434"
-    provider: Literal["openai", "ollama"] = "ollama"
+    api_key: Optional[str] = None
+    provider: Literal["openai", "ollama", "dashscope"] = "ollama"
     workers: int = 8
     index_field: str = ""
     index_type: Literal["HNSW", "IVF_FLAT", "IVF_PQ"] = "HNSW"
