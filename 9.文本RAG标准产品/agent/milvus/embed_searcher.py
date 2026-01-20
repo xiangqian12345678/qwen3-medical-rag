@@ -65,11 +65,21 @@ class EmbedSearcher:
         from pymilvus import AnnSearchRequest, RRFRanker
         from langchain_core.documents import Document
 
-        # 如果没有指定检索请求，使用默认配置
+        # 如果没有指定检索请求，使用默认配置（多路检索）
         if not req.requests:
             req.requests = [
-                SearchRequest(
+                SingleSearchRequest(
                     anns_field="chunk_dense",
+                    limit=50,
+                    search_params={"ef": 64}
+                ),
+                SingleSearchRequest(
+                    anns_field="questions_dense",
+                    limit=50,
+                    search_params={"ef": 64}
+                ),
+                SingleSearchRequest(
+                    anns_field="parent_chunk_dense",
                     limit=50,
                     search_params={"ef": 64}
                 )

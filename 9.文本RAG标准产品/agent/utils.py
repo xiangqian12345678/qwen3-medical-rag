@@ -99,18 +99,9 @@ def create_embedding_client(config: DenseConfig) -> Embeddings:
         return OllamaEmbeddings(**kwargs)
 
     elif config.provider == "dashscope":
-        # 创建 HTTP 客户端，参考知识图谱模块的配置
-        http_client = httpx.Client(
-            trust_env=False,
-            timeout=60.0
-        )
-
         kwargs = {
-            "model": config.model,
-            "http_client": http_client
+            "model": config.model
         }
-        if config.api_key:
-            kwargs["api_key"] = config.api_key
         logger.info(f"创建 DashScope Embeddings: {config.model}")
         return DashScopeEmbeddings(**kwargs)
 
