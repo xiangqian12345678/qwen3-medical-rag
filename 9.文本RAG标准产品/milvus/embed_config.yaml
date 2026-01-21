@@ -1,4 +1,7 @@
-# 向量检索配置
+# 向量检索配置 - 与索引构建完全对齐
+# =============================================================================
+# Milvus 配置
+# =============================================================================
 milvus:
   uri: http://localhost:19530
   token: null
@@ -6,26 +9,128 @@ milvus:
   drop_old: false
   auto_id: false
 
-embedding:
-  summary_dense:
+# =============================================================================
+# 稠密向量字段配置
+# =============================================================================
+dense_fields:
+  # chunk 字段配置
+  chunk:
+    embed: true
+    type: str
     provider: dashscope
     model: text-embedding-v2
     api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
     base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
     dimension: 1536
-  text_dense:
+    workers: 8
+    index_field: chunk_dense
+    index_type: HNSW
+    index_params:
+      M: 32
+      efConstruction: 200
+    search_params:
+      ef: 64
+    metric_type: COSINE
+
+  # parent_chunk 字段配置（父级文本块）
+  parent_chunk:
+    embed: true
+    type: str
     provider: dashscope
     model: text-embedding-v2
     api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
     base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
     dimension: 1536
-  text_sparse:
-    provider: self
-    vocab_path_or_name: vocab.pkl.gz
+    workers: 8
+    index_field: parent_chunk_dense
+    index_type: HNSW
+    index_params:
+      M: 32
+      efConstruction: 200
+    search_params:
+      ef: 64
+    metric_type: COSINE
+
+  # summary 字段配置（文档摘要）
+  # 注意：由于 Milvus 限制最多 4 个向量字段，summary 字段不创建索引
+  summary:
+    embed: false
+    type: str
+    provider: dashscope
+    model: text-embedding-v2
+    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+    dimension: 1536
+    workers: 8
+    index_field: summary_dense
+    index_type: HNSW
+    index_params:
+      M: 32
+      efConstruction: 200
+    search_params:
+      ef: 64
+    metric_type: COSINE
+
+  # questions 字段配置（问题列表）
+  questions:
+    embed: true
+    type: list
+    provider: dashscope
+    model: text-embedding-v2
+    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+    dimension: 1536
+    workers: 8
+    index_field: questions_dense
+    index_type: HNSW
+    index_params:
+      M: 32
+      efConstruction: 200
+    search_params:
+      ef: 64
+    metric_type: COSINE
+
+# =============================================================================
+# 稀疏向量字段配置
+# =============================================================================
+sparse_fields:
+  chunk:
+    embed: true
+    vocab_path: ../../output/vocab/vocab.pkl.gz
     algorithm: BM25
-    domain_model: medicine
     k1: 1.5
     b: 0.75
-    build:
-      workers: 8
-      chunksize: 64
+    domain_model: medicine
+    workers: 8
+    index_field: chunk_sparse
+    index_type: SPARSE_INVERTED_INDEX
+    index_params:
+      inverted_index_algo: DAAT_MAXSCORE
+    metric_type: IP
+
+# =============================================================================
+# 检索融合配置
+# =============================================================================
+fusion:
+  method: rrf
+  k: 60
+  weights:
+    chunk_dense: 0.35
+    parent_chunk_dense: 0.35
+    questions_dense: 0.20
+    chunk_sparse: 0.10
+
+# =============================================================================
+# 默认检索配置
+# =============================================================================
+default_search:
+  limit: 5
+  top_k: 50
+  output_fields:
+    - chunk
+    - parent_chunk
+    - summary
+    - questions
+    - document
+    - source
+    - source_name

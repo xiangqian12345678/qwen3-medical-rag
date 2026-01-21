@@ -11,18 +11,18 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import DashScopeEmbeddings
 
-from embed_config import DenseConfig
+from embed_config import DenseFieldConfig
 
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     pass
 
 
-def create_embedding_client(config: Union[dict, DenseConfig]) -> Embeddings:
+def create_embedding_client(config: Union[dict, DenseFieldConfig]) -> Embeddings:
     """创建嵌入客户端
 
     Args:
-        config: 嵌入配置（字典或DenseConfig对象），包含 provider, model, dimension, api_key, base_url
+        config: 嵌入配置（字典或DenseFieldConfig对象），包含 provider, model, dimension, api_key, base_url
 
     Returns:
         嵌入客户端实例

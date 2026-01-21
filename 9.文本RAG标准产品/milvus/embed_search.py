@@ -24,6 +24,7 @@ if str(agent_dir) not in sys.path:
 
 # 尝试相对导入（当作为包导入时）
 from embed_searcher import get_kb
+from embed_config import SingleSearchRequest
 from embed_utils import json_to_list_document, _should_call_tool
 from embed_templates import get_prompt_template
 
@@ -132,13 +133,34 @@ def create_db_search_tool(
     创建数据库检索工具节点
 
     Args:
-        config: 应用配置
+        config: 应用配置（EmbedConfigLoader实例）
         power_model: LLM实例
 
     Returns:
         tuple: (db_search_tool, db_search_llm, db_tool_node)
     """
     fixed_collection_name = config.milvus.collection_name
+    # 构建默认的多路检索请求
+    default_requests = [
+        SingleSearchRequest(
+            anns_field="chunk_dense",
+            limit=50,
+            search_params={"ef": 64},
+            metric_type="COSINE"
+        ),
+        SingleSearchRequest(
+            anns_field="parent_chunk_dense",
+            limit=50,
+            search_params={"ef": 64},
+            metric_type="COSINE"
+        ),
+        SingleSearchRequest(
+            anns_field="questions_dense",
+            limit=50,
+            search_params={"ef": 64},
+            metric_type="COSINE"
+        )
+    ]
 
     @tool("database_search")
     def database_search(query: str) -> str:
@@ -148,13 +170,17 @@ def create_db_search_tool(
         Returns: 检索结果的JSON字符串
         """
         try:
-            from .embed_config import SearchRequest
-            kb = get_kb(config.model_dump())
+            from embed_config import SearchRequest, FusionSpec
+            kb = get_kb(config.as_dict)
 
             search_req = SearchRequest(
                 query=query,
                 collection_name=fixed_collection_name,
-                limit=5
+                requests=default_requests,
+                fuse=FusionSpec(method=config.fusion.method, k=config.fusion.k),
+                output_fields=config.default_search.output_fields,
+                top_k=config.default_search.top_k,
+                limit=config.default_search.limit
             )
 
             results = kb.search(req=search_req)
@@ -182,3 +208,116 @@ def create_db_search_tool(
     db_tool_node = ToolNode([db_search_tool])
 
     return db_search_tool, db_search_llm, db_tool_node
+
+
+def main():
+    """主函数：测试 embed_search 模块功能"""
+    import sys
+    from pathlib import Path
+
+    # 配置日志
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    logger.info("=" * 60)
+    logger.info("开始测试 embed_search 模块")
+    logger.info("=" * 60)
+
+    try:
+        # 加载配置
+        from embed_loader import EmbedConfigLoader
+        config = EmbedConfigLoader()
+        logger.info(f"配置加载成功，Milvus集合名称: {config.milvus.collection_name}")
+
+        # 初始化LLM（使用默认配置，可以根据实际情况修改）
+        from langchain_openai import ChatOpenAI
+
+        logger.info("初始化LLM...")
+        # 从环境变量或配置文件读取LLM配置
+        import os
+        llm = ChatOpenAI(
+            model=os.getenv("LLM_MODEL", "qwen3:4b"),
+            temperature=0.1,
+            base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
+            api_key=os.getenv("LLM_API_KEY", "sk-xxx")
+        )
+        logger.info(f"LLM初始化成功")
+
+        # 创建数据库检索工具
+        logger.info("创建数据库检索工具...")
+        db_search_tool, db_search_llm, db_tool_node = create_db_search_tool(
+            config=config,
+            power_model=llm
+        )
+        logger.info("数据库检索工具创建成功")
+
+        # 测试查询
+        test_query = "糖尿病的常见症状有哪些？"
+
+        logger.info(f"测试查询: {test_query}")
+
+        # 准备状态
+        state = {
+            "query": test_query,
+            "main_messages": [],
+            "other_messages": [],
+            "docs": [],
+            "answer": "",
+            "retry": 0,
+            "final": "",
+            "judge_result": ""
+        }
+
+        # 执行数据库检索
+        logger.info("开始执行数据库检索...")
+        state = llm_db_search(
+            state=state,
+            llm=db_search_llm,
+            db_tool_node=db_tool_node,
+            show_debug=True
+        )
+
+        # 输出结果
+        logger.info("=" * 60)
+        logger.info("检索结果汇总")
+        logger.info("=" * 60)
+        logger.info(f"检索到文档数量: {len(state['docs'])}")
+
+        if state['docs']:
+            logger.info("\n检索到的文档内容:")
+            for i, doc in enumerate(state['docs'], 1):
+                logger.info(f"\n--- 文档 {i} ---")
+                logger.info(f"内容: {doc.page_content[:300]}...")
+                logger.info(f"元数据: {doc.metadata}")
+        else:
+            logger.warning("未检索到任何文档")
+
+        # 测试直接调用工具
+        logger.info("\n" + "=" * 60)
+        logger.info("测试直接调用数据库检索工具")
+        logger.info("=" * 60)
+
+        tool_result = db_search_tool.invoke({"query": "高血压的治疗方法"})
+        result_data = json.loads(tool_result)
+
+        logger.info(f"直接调用工具返回结果数量: {len(result_data)}")
+        if result_data:
+            for i, item in enumerate(result_data[:2], 1):  # 只显示前2条
+                logger.info(f"\n--- 工具结果 {i} ---")
+                logger.info(f"内容: {item['page_content'][:1000]}...")
+
+        logger.info("\n" + "=" * 60)
+        logger.info("测试完成！")
+        logger.info("=" * 60)
+
+    except Exception as e:
+        logger.error(f"测试过程中发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

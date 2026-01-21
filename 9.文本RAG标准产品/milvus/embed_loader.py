@@ -1,5 +1,5 @@
 """
-向量检索配置加载器
+向量检索配置加载器 - 与索引构建完全对齐
 """
 import logging
 import os
@@ -9,7 +9,10 @@ from typing import Any
 
 import yaml
 
-from embed_config import MilvusConfig, EmbeddingConfig
+from embed_config import (
+    MilvusConfig, EmbedConfig, DenseFieldConfig,
+    SparseFieldConfig, FusionConfig, DefaultSearchConfig
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,7 @@ class EmbedConfigLoader:
     功能：
     - 从 YAML 文件加载向量检索配置
     - 支持环境变量替换
+    - 与索引构建的配置结构完全对齐
     """
 
     _ENV_PATTERN = re.compile(r'\$\{([^}]+)\}')
@@ -44,8 +48,19 @@ class EmbedConfigLoader:
         raw = self._replace_env_vars(raw)
 
         self._dict = raw
-        self.milvus_config = MilvusConfig(**raw.get("milvus", {}))
-        self.embedding_config = EmbeddingConfig(**raw.get("embedding", {}))
+
+        # 加载配置（与索引构建对齐）
+        self.milvus = MilvusConfig(**raw.get("milvus", {}))
+        self.dense_fields = {
+            k: DenseFieldConfig(**v)
+            for k, v in raw.get("dense_fields", {}).items()
+        }
+        self.sparse_fields = {
+            k: SparseFieldConfig(**v)
+            for k, v in raw.get("sparse_fields", {}).items()
+        }
+        self.fusion = FusionConfig(**raw.get("fusion", {}))
+        self.default_search = DefaultSearchConfig(**raw.get("default_search", {}))
 
     def _replace_env_vars(self, data: Any) -> Any:
         """递归替换配置中的环境变量"""
@@ -62,16 +77,6 @@ class EmbedConfigLoader:
             return data
 
     @property
-    def milvus(self) -> MilvusConfig:
-        """获取Milvus配置"""
-        return self.milvus_config
-
-    @property
-    def embedding(self) -> EmbeddingConfig:
-        """获取Embedding配置"""
-        return self.embedding_config
-
-    @property
     def as_dict(self) -> dict:
         """返回当前配置的 dict 形式"""
         return self._dict
@@ -86,6 +91,10 @@ class EmbedConfigLoader:
             else:
                 return default
         return value
+
+    def model_dump(self) -> dict:
+        """返回配置的字典形式（兼容旧接口）"""
+        return self.as_dict
 
     def save(self, save_path: str = None):
         """将当前配置保存到 YAML 文件"""
