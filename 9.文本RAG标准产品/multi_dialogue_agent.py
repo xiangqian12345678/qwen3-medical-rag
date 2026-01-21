@@ -17,10 +17,11 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-from .search_graph import SearchGraph, SearchMessagesState
-from .templates import get_prompt_template
-from .utils import create_llm_client
-from .utils import strip_think_get_tokens
+from app_config import APPConfig
+from search_graph import SearchGraph, SearchMessagesState
+from templates import get_prompt_template
+from utils import create_llm_client
+from utils import strip_think_get_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -459,7 +460,7 @@ def gather_answer(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentS
     )
 
     summary_text = "\n".join([
-        item.get("answer", "") for item in state.get("sub_query_results", [])
+        item.get("final", "") or item.get("answer","") for item in state.get("sub_query_results", [])
     ])
 
     state["dialogue_messages"].append(
@@ -476,18 +477,18 @@ def gather_answer(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentS
 class MultiDialogueAgent:
     """多轮对话Agent：对外暴露的统一问答入口"""
 
-    def __init__(self, config: AppConfig, power_model: BaseChatModel, websearch_func=None) -> None:
+    def __init__(self, app_config: APPConfig, power_model: BaseChatModel, websearch_func=None) -> None:
         """
         初始化多轮对话Agent
 
         Args:
-            config: 应用配置
+            app_config: 应用配置
             power_model: 强大模型实例（用于工具调用）
             websearch_func: 网络搜索函数（可选）
         """
-        self.config = config
+        self.config = app_config
         self.power_model = power_model
-        self.normal_llm = create_llm_client(config.llm)
+        self.normal_llm = create_llm_client(app_config.llm)
 
         # 延迟导入SearchGraph以避免循环依赖
         try:
@@ -495,7 +496,7 @@ class MultiDialogueAgent:
         except ImportError:
             from search_graph import SearchGraph
 
-        self.search_graph = SearchGraph(config, power_model)
+        self.search_graph = SearchGraph(app_config, power_model)
         self._build_graph()
 
     def _build_graph(self):

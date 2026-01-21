@@ -21,7 +21,6 @@ class LLMConfig(BaseModel):
 class AgentConfig(BaseModel):
     """Agent对话配置"""
     max_attempts: int = 2
-    auto_search_param: bool = True
     console_debug: bool = False
     max_ask_num: int = Field(default=5, gt=0, description="最大追问轮次")
 
