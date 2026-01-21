@@ -1,6 +1,6 @@
 """数据库工厂类，用于创建和管理知识库实例"""
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 from duckduckgo_search import DDGS
 from langchain_core.documents import Document
@@ -14,7 +14,7 @@ _ws_instance: Optional["WebSearcher"] = None
 class WebSearcher:
     """知识库类，封装向量数据库检索功能"""
 
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: Union[Dict[str, Any], None] = None):
         pass
 
     def search(self, query: str, cnt: int = 5) -> list[Document]:

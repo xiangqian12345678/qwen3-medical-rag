@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from .search_config import SearchAgentConfig
+from search_config import SearchAgentConfig
 
 logger = logging.getLogger(__name__)
 
