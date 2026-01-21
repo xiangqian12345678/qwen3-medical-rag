@@ -37,7 +37,3 @@ llm:
   model: qwen-plus
   temperature: 0.3
   max_tokens: 2048
-
-agent:
-  kgraph_search_enabled: true
-  kgraph_search_cnt: 10

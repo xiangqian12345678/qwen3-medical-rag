@@ -11,7 +11,7 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
 # 导入各子模块的配置类
-from kgraph import Neo4jConfig, KGraphAgentConfig
+from kgraph import Neo4jConfig
 from milvus.embed_config import MilvusConfig, EmbeddingConfig
 from search import SearchAgentConfig
 
@@ -57,7 +57,6 @@ class AgentConfig(BaseModel):
     max_ask_num: int = Field(default=5, gt=0, description="最大追问轮次")
 
     # 子模块配置
-    kgraph: KGraphAgentConfig = Field(default_factory=KGraphAgentConfig)
     search: SearchAgentConfig = Field(default_factory=SearchAgentConfig)
 
 

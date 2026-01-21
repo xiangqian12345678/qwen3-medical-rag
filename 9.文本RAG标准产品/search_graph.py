@@ -295,8 +295,8 @@ class SearchGraph:
             )
             graph.add_node("web_search", network_search_node_func)
 
-        # 只在启用知识图谱搜索且工具创建成功时添加kgraph_search节点
-        if self.config.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
+        # 添加知识图谱搜索节点（如果工具创建成功）
+        if self.kgraph_tool_node is not None:
             kgraph_search_node_func = partial(
                 llm_kgraph_search,
                 llm=self.kgraph_search_llm,
@@ -333,7 +333,7 @@ class SearchGraph:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
-        if self.config.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
+        if self.kgraph_tool_node is not None:
             graph.add_edge(last_node, "kgraph_search")
             last_node = "kgraph_search"
 

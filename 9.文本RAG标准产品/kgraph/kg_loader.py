@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from kg_config import Neo4jConfig, KGraphAgentConfig, LLMConfig
+from kg_config import Neo4jConfig, LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,6 @@ class KGraphConfigLoader:
         self._dict = raw
         self.neo4j_config = Neo4jConfig(**raw.get("neo4j", {}))
         self.llm_config = LLMConfig(**raw.get("llm", {}))
-        self.kgraph_agent_config = KGraphAgentConfig(**raw.get("agent", {}))
 
     def _replace_env_vars(self, data: Any) -> Any:
         """递归替换配置中的环境变量"""
@@ -72,10 +71,6 @@ class KGraphConfigLoader:
         """获取LLM配置"""
         return self.llm_config
 
-    @property
-    def kgraph_agent(self) -> KGraphAgentConfig:
-        """获取知识图谱Agent配置"""
-        return self.kgraph_agent_config
 
     @property
     def as_dict(self) -> dict:

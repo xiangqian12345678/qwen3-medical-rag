@@ -22,9 +22,3 @@ class Neo4jConfig(BaseModel):
     max_connection_lifetime: int = 3600
     max_connection_pool_size: int = 50
     connection_timeout: float = 30.0
-
-
-class KGraphAgentConfig(BaseModel):
-    """知识图谱Agent配置"""
-    kgraph_search_enabled: bool = False  # 是否启用知识图谱搜索
-    kgraph_search_cnt: int = Field(default=10, gt=0, description="知识图谱搜索结果最大数")

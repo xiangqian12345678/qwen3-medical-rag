@@ -117,10 +117,8 @@ def create_kgraph_search_tool(
     Returns:
         tuple: (kgraph_search_tool, kgraph_search_llm, kgraph_tool_node)
     """
-    if config.kgraph_agent_config.kgraph_search_enabled is False:
-        return None, None, None
-
-    cnt = config.kgraph_agent_config.kgraph_search_cnt
+    # 默认启用知识图谱搜索
+    cnt = 10  # 默认检索10条结果
 
     # 创建Neo4j连接
     neo4j_conn = Neo4jConnection(config)
@@ -207,7 +205,7 @@ if __name__ == "__main__":
         }
         graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
 
-        # 示例1: 关键词检索
+        # 示例1: query检索
         print(f"\n" + "=" * 60)
         print("示例1: 关键词检索")
         print("=" * 60)
@@ -228,17 +226,16 @@ if __name__ == "__main__":
         for i, doc in enumerate(docs, 1):
             print(f"   {i}. {doc.page_content}")
 
-        # 示例3: 综合图谱检索
+        # 示例3: 关键词检索
         print(f"\n" + "=" * 60)
         print("示例3: 综合图谱检索")
         print("=" * 60)
         keyword = "糖尿病"
         print(f"综合检索关键词: '{keyword}'")
         result = graph_searcher.search_by_keyword(keyword, limit=10)
-        vdb_results = result.get("vdb_results", [])
-        print(f"✅ 找到 {len(vdb_results)} 条结果（实体+关系）:")
-        for i, doc in enumerate(vdb_results, 1):
-            print(f"   {i}. {doc}")
+        print(f"✅ 找到 {len(result)} 条结果（实体）:")
+        for i, doc in enumerate(result, 1):
+            print(f"   {i}. {doc.page_content}")
 
         # 示例4: 测试检索工具
         print(f"\n" + "=" * 60)
