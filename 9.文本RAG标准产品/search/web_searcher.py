@@ -51,9 +51,6 @@ def get_ws(config: Dict[str, Any] = None) -> WebSearcher:
     global _ws_instance
 
     if _ws_instance is None:
-        if config is None:
-            raise ValueError("首次调用必须传入config参数")
-
         _ws_instance = WebSearcher(config)
 
     return _ws_instance

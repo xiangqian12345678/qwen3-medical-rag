@@ -1,29 +1,17 @@
 """工具函数"""
-import httpx
 import logging
 import re
-import sys
-from pathlib import Path
-from typing import TYPE_CHECKING
 
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
+import httpx
+from langchain_community.chat_models import ChatTongyi
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
-from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.chat_models import ChatTongyi
-from langchain_community.embeddings import DashScopeEmbeddings
-
-project_dir = Path(__file__).parent.parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
+from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from rag_config import LLMConfig
 
 logger = logging.getLogger(__name__)
-if TYPE_CHECKING:
-    pass
 
 
 def create_llm_client(config: LLMConfig) -> BaseChatModel:
@@ -74,8 +62,6 @@ def create_llm_client(config: LLMConfig) -> BaseChatModel:
 
     else:
         raise ValueError(f"不支持的LLM提供商: {config.provider}")
-
-
 
 
 def format_documents(documents) -> str:

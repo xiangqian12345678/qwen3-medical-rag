@@ -49,6 +49,10 @@ def llm_db_search(
     2. 如果需要，执行数据库检索并获取相关文档
     3. 将检索到的文档添加到状态中供后续RAG使用
     """
+    print('-' * 60)
+    print("开始向量检索")
+    print('-' * 60)
+
     query = state["query"]
 
     if show_debug:

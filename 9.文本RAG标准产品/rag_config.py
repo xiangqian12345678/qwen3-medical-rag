@@ -29,6 +29,10 @@ class AgentConfig(BaseModel):
     network_search_enabled: bool = False
     network_search_cnt: int = 10
 
+    # 知识图谱配置参数
+    kgraph_search_enabled: bool = False
+    kgraph_search_cnt: int = 10
+
 
 # =============================================================================
 # 多轮对话RAG配置

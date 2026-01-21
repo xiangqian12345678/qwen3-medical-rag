@@ -240,7 +240,7 @@ class SearchGraph:
         self.appConfig = appConfig
 
         # 创建数据库检索工具
-        db_tool, db_llm, db_node = create_db_search_tool(appConfig, power_model)
+        db_tool, db_llm, db_node = create_db_search_tool(appConfig.milvus_config_loader, power_model)
         self.db_search_tool = db_tool
         self.db_search_llm = db_llm
         self.db_tool_node = db_node
@@ -260,7 +260,9 @@ class SearchGraph:
             self.network_tool_node = None
 
         # 创建知识图谱检索工具
-        kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(appConfig.kgraph_config_loader.neo4j_config, power_model)
+        # self.kgraphConfigLoader = KGraphConfigLoader()
+
+        kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(appConfig.kgraph_config_loader, power_model)
         self.kgraph_search_tool = kgraph_tool
         self.kgraph_search_llm = kgraph_llm
         self.kgraph_tool_node = kgraph_node
@@ -299,7 +301,7 @@ class SearchGraph:
             graph.add_node("web_search", network_search_node_func)
 
         # 添加知识图谱搜索节点（如果工具创建成功）
-        if self.kgraph_tool_node is not None:
+        if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
             kgraph_search_node_func = partial(
                 llm_kgraph_search,
                 llm=self.kgraph_search_llm,
@@ -336,7 +338,7 @@ class SearchGraph:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
-        if self.kgraph_tool_node is not None:
+        if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
             graph.add_edge(last_node, "kgraph_search")
             last_node = "kgraph_search"
 
@@ -459,7 +461,8 @@ if __name__ == "__main__":
         rag_config_loader = RAGConfigLoader()  # 与milvus_config 和 kgraph_config 的loader不同
         milvus_config_loader = EmbedConfigLoader()
         kgraph_config_loader = KGraphConfigLoader()
-        app_config = APPConfig(rag_config_loader=rag_config_loader, milvus_config_loader=milvus_config_loader,
+        app_config = APPConfig(rag_config_loader=rag_config_loader,
+                               milvus_config_loader=milvus_config_loader,
                                kgraph_config_loader=kgraph_config_loader)
         rag_config = rag_config_loader.config
 

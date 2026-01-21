@@ -5,7 +5,6 @@ import logging
 from typing import List
 from typing import TYPE_CHECKING
 
-
 from langchain.output_parsers import OutputFixingParser
 from langchain.tools import tool
 from langchain_core.documents import Document
@@ -65,6 +64,10 @@ def llm_network_search(
     3. 根据判断结果，决定保留或替换已有的本地数据库文档
     4. 将网络检索结果整合到文档列表中供后续RAG使用
     """
+    print('-' * 60)
+    print("开始搜索检索")
+    print('-' * 60)
+
     if show_debug:
         logger.info(f"检查是否缺失资料需要网络搜索...")
 

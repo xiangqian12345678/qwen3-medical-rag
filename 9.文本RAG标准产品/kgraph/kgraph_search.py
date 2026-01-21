@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import SystemMessage, ToolMessage, HumanMessage
 from langgraph.prebuilt import ToolNode
 
-from kgraph import Neo4jConfig
 from .kg_templates import get_prompt_template
 from .kg_utils import json_to_list_document, _should_call_tool
 from .kgraph_searcher import GraphSearcher
 from .neo4j_connection import Neo4jConnection
+from .kg_loader import KGraphConfigLoader
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
@@ -51,6 +51,9 @@ def llm_kgraph_search(
     2. 如果需要，执行图谱检索并获取相关实体和关系
     3. 将检索到的实体/关系转换为Document对象添加到状态中供后续RAG使用
     """
+    print('-' * 60)
+    print("开始图谱检索")
+    print('-' * 60)
     query = state["query"]
 
     if show_debug:
@@ -105,14 +108,14 @@ def llm_kgraph_search(
 
 
 def create_kgraph_search_tool(
-        neo4jConfig: Neo4jConfig,
+        kgraph_config_loader: KGraphConfigLoader,
         power_model: BaseChatModel
 ):
     """
     创建知识图谱检索工具节点
 
     Args:
-        neo4jConfig: 应用配置
+        kgraph_config_loader: 图谱配置加载器
         power_model: LLM实例
 
     Returns:
@@ -120,9 +123,7 @@ def create_kgraph_search_tool(
     """
     # 默认启用知识图谱搜索
     cnt = 10  # 默认检索10条结果
-
-    # 创建Neo4j连接
-    neo4j_conn = Neo4jConnection(neo4jConfig)
+    neo4j_conn = Neo4jConnection(kgraph_config_loader)  # 创建Neo4j连接
     connected = neo4j_conn.connect()
 
     if not connected:
@@ -132,10 +133,10 @@ def create_kgraph_search_tool(
     # 创建图谱检索器（传入嵌入配置以支持向量检索）
     # 使用 text_dense 配置作为嵌入模型
     embedding_config = {
-        "provider": neo4jConfig.get("embedding.provider", "ollama"),
-        "model": neo4jConfig.get("embedding.model", "nomic-embed-text"),
-        "api_key": neo4jConfig.get("embedding.api_key", None),
-        "base_url": neo4jConfig.get("embedding.base_url", "http://localhost:11434/v1")
+        "provider": kgraph_config_loader.get("embedding.provider", "ollama"),
+        "model": kgraph_config_loader.get("embedding.model", "nomic-embed-text"),
+        "api_key": kgraph_config_loader.get("embedding.api_key", None),
+        "base_url": kgraph_config_loader.get("embedding.base_url", "http://localhost:11434/v1")
     }
     graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
 

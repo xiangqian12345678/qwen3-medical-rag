@@ -16,8 +16,3 @@ class APPConfig:
         self.llm = rag_config_loader.config.llm
         self.agent = rag_config_loader.config.agent
         self.multi_dialogue_rag = rag_config_loader.config.multi_dialogue_rag
-
-        # 解析
-        # self.embed = milvus_config_loader.
-        # self.milvus = milvus_config_loader.milvus
-

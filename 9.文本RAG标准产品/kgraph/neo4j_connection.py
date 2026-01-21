@@ -2,12 +2,12 @@
 Neo4j数据库连接模块
 负责初始化和管理Neo4j数据库连接
 """
-import sys
-from pathlib import Path
+import logging
 from typing import Optional
 
 from neo4j import GraphDatabase, basic_auth
 
+logger = logging.getLogger(__name__)
 
 
 class Neo4jConnection:
@@ -16,34 +16,34 @@ class Neo4jConnection:
     负责建立、维护和关闭数据库连接
     """
 
-    def __init__(self, neo4jConfig):
+    def __init__(self, kgraphConfigLoader):
         """
         初始化Neo4j连接
 
         Args:
-            neo4jConfig: 应用配置（可以是字典、对象或配置模块）
+            kgraphConfigLoader: 应用配置加载器
         """
-        self.neo4jConfig = neo4jConfig
+        self.neo4jConfig = kgraphConfigLoader
         self.driver: Optional[GraphDatabase.driver] = None
 
         # 支持字典和对象两种配置方式
-        if isinstance(neo4jConfig, dict):
-            self.uri = neo4jConfig.get('uri', 'bolt://localhost:7687')
-            self.user = neo4jConfig.get('user', 'neo4j')
-            self.password = neo4jConfig.get('password', '')
-            self.database = neo4jConfig.get('database', 'neo4j')
-            self.max_connection_lifetime = neo4jConfig.get('max_connection_lifetime', 3600)
-            self.max_connection_pool_size = neo4jConfig.get('max_connection_pool_size', 50)
-            self.connection_timeout = neo4jConfig.get('connection_timeout', 30.0)
-        elif hasattr(neo4jConfig, 'neo4j'):
+        if isinstance(kgraphConfigLoader, dict):
+            self.uri = kgraphConfigLoader.get('uri', 'bolt://localhost:7687')
+            self.user = kgraphConfigLoader.get('user', 'neo4j')
+            self.password = kgraphConfigLoader.get('password', '')
+            self.database = kgraphConfigLoader.get('database', 'neo4j')
+            self.max_connection_lifetime = kgraphConfigLoader.get('max_connection_lifetime', 3600)
+            self.max_connection_pool_size = kgraphConfigLoader.get('max_connection_pool_size', 50)
+            self.connection_timeout = kgraphConfigLoader.get('connection_timeout', 30.0)
+        elif hasattr(kgraphConfigLoader, 'neo4j'):
             # 从配置对象中获取Neo4j连接参数
-            self.uri = getattr(neo4jConfig.neo4j, 'uri', 'bolt://localhost:7687')
-            self.user = getattr(neo4jConfig.neo4j, 'user', 'neo4j')
-            self.password = getattr(neo4jConfig.neo4j, 'password', '')
-            self.database = getattr(neo4jConfig.neo4j, 'database', 'neo4j')
-            self.max_connection_lifetime = getattr(neo4jConfig.neo4j, 'max_connection_lifetime', 3600)
-            self.max_connection_pool_size = getattr(neo4jConfig.neo4j, 'max_connection_pool_size', 50)
-            self.connection_timeout = getattr(neo4jConfig.neo4j, 'connection_timeout', 30.0)
+            self.uri = getattr(kgraphConfigLoader.neo4j, 'uri', 'bolt://localhost:7687')
+            self.user = getattr(kgraphConfigLoader.neo4j, 'user', 'neo4j')
+            self.password = getattr(kgraphConfigLoader.neo4j, 'password', '')
+            self.database = getattr(kgraphConfigLoader.neo4j, 'database', 'neo4j')
+            self.max_connection_lifetime = getattr(kgraphConfigLoader.neo4j, 'max_connection_lifetime', 3600)
+            self.max_connection_pool_size = getattr(kgraphConfigLoader.neo4j, 'max_connection_pool_size', 50)
+            self.connection_timeout = getattr(kgraphConfigLoader.neo4j, 'connection_timeout', 30.0)
         else:
             # 默认配置
             self.uri = 'bolt://localhost:7687'

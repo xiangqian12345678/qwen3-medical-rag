@@ -1,10 +1,8 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
 import logging
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
-from pathlib import Path
-from typing import TYPE_CHECKING, List, Any
+from typing import List, Any
 
 from langchain.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -19,12 +17,10 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-from .rag_config import RAGConfig
-from .utils import create_llm_client
-from .templates import get_prompt_template
-from .utils import strip_think_get_tokens
 from .search_graph import SearchGraph, SearchMessagesState
-
+from .templates import get_prompt_template
+from .utils import create_llm_client
+from .utils import strip_think_get_tokens
 
 logger = logging.getLogger(__name__)
 
