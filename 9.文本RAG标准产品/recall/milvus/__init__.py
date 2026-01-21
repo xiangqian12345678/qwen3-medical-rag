@@ -15,10 +15,10 @@ try:
     from .embed_templates import register_prompt_template as register_embed_prompt_template
 except ImportError:
     # 回退到直接导入（当直接运行文件时）
-    from milvus.embed_search import llm_db_search, create_db_search_tool
-    from milvus.embed_templates import PROMPT_TEMPLATES as EMBED_PROMPT_TEMPLATES
-    from milvus.embed_templates import get_prompt_template as get_embed_prompt_template
-    from milvus.embed_templates import register_prompt_template as register_embed_prompt_template
+    from recall.milvus.embed_search import llm_db_search, create_db_search_tool
+    from recall.milvus.embed_templates import PROMPT_TEMPLATES as EMBED_PROMPT_TEMPLATES
+    from recall.milvus.embed_templates import get_prompt_template as get_embed_prompt_template
+    from recall.milvus.embed_templates import register_prompt_template as register_embed_prompt_template
 
 __all__ = [
     'llm_db_search', 'create_db_search_tool',

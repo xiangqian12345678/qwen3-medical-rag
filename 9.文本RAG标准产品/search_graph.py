@@ -8,8 +8,8 @@ from typing import List, Union
 from dotenv import load_dotenv
 
 from app_config import APPConfig
-from kgraph.kg_loader import KGraphConfigLoader
-from milvus.embed_loader import EmbedConfigLoader
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.milvus.embed_loader import EmbedConfigLoader
 
 # 加载环境变量（优先级：.env文件 > 系统环境变量）
 project_root = Path(__file__).parent.parent
@@ -26,13 +26,12 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from rag_config import RAGConfig
 from utils import create_llm_client
 
 # 尝试相对导入（当作为包导入时）
-from milvus import llm_db_search, create_db_search_tool
-from search import llm_network_search, create_web_search_tool
-from kgraph import llm_kgraph_search, create_kgraph_search_tool
+from recall.milvus import llm_db_search, create_db_search_tool
+from recall.search import llm_network_search, create_web_search_tool
+from recall.kgraph import llm_kgraph_search, create_kgraph_search_tool
 from rag_answer import rag_node, judge_node, finish_success, finish_fail
 
 

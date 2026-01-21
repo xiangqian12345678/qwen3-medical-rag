@@ -96,12 +96,12 @@ embedding_config = loader.embedding
 ### 使用网络搜索功能
 
 ```python
-from search.web_search import create_web_search_tool
+from recall.search import create_web_search_tool
 
 # 创建网络搜索工具
 network_search_tool, network_search_llm, network_tool_node = create_web_search_tool(
-    search_cnt=10,          # 网络搜索返回结果数量
-    power_model=llm         # LLM实例
+  search_cnt=10,  # 网络搜索返回结果数量
+  power_model=llm  # LLM实例
 )
 ```
 

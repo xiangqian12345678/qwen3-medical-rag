@@ -122,9 +122,9 @@ graph TD
 ### 4.1 基础检索
 
 ```python
-from milvus.embed_loader import EmbedConfigLoader
-from milvus.embed_searcher import get_kb
-from milvus.embed_config import SearchRequest, FusionSpec, SingleSearchRequest
+from recall.milvus.embed_loader import EmbedConfigLoader
+from recall.milvus.embed_searcher import get_kb
+from recall.milvus.embed_config import SearchRequest, FusionSpec, SingleSearchRequest
 
 # 加载配置
 config = EmbedConfigLoader()
@@ -174,8 +174,8 @@ for doc in results:
 
 ```python
 from langchain_openai import ChatOpenAI
-from milvus.embed_loader import EmbedConfigLoader
-from milvus.embed_search import create_db_search_tool, llm_db_search
+from recall.milvus.embed_loader import EmbedConfigLoader
+from recall.milvus.embed_search import create_db_search_tool, llm_db_search
 from langgraph.prebuilt import ToolNode
 
 # 加载配置

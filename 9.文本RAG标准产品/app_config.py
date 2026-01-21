@@ -1,5 +1,5 @@
-from kgraph.kg_loader import KGraphConfigLoader
-from milvus.embed_loader import EmbedConfigLoader
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.milvus.embed_loader import EmbedConfigLoader
 from rag_loader import RAGConfigLoader
 
 

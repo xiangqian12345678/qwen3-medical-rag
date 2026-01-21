@@ -10,7 +10,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from milvus.embed_loader import EmbedConfigLoader
+from recall.milvus.embed_loader import EmbedConfigLoader
 from .embed_config import SingleSearchRequest
 from .embed_searcher import get_kb
 from .embed_templates import get_prompt_template

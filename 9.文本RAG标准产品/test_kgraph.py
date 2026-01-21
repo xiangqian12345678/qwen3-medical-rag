@@ -14,13 +14,12 @@ project_dir = Path(__file__).parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from kgraph.kg_loader import KGraphConfigLoader
-from kgraph.neo4j_connection import Neo4jConnection
-from kgraph.kgraph_searcher import GraphSearcher
-from kgraph.kgraph_search import create_kgraph_search_tool
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.kgraph.neo4j_connection import Neo4jConnection
+from recall.kgraph.kgraph_searcher import GraphSearcher
+from recall.kgraph import create_kgraph_search_tool
 
 # 配置日志
 logging.basicConfig(
@@ -215,7 +214,7 @@ class KGraphSearchTester:
         logger.info("=" * 60)
 
         try:
-            from kgraph.kg_templates import get_prompt_template
+            from recall.kgraph.kg_templates import get_prompt_template
 
             # 调用LLM判断是否需要调用图谱检索工具
             kg_ai = self.llm.invoke([

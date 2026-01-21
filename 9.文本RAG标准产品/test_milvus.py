@@ -15,11 +15,10 @@ project_dir = Path(__file__).parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from milvus.embed_loader import EmbedConfigLoader
-from milvus.embed_search import create_db_search_tool, llm_db_search
+from recall.milvus.embed_loader import EmbedConfigLoader
+from recall.milvus.embed_search import create_db_search_tool, llm_db_search
 
 # 配置日志
 logging.basicConfig(
@@ -166,7 +165,7 @@ class MilvusSearchTester:
         logger.info("=" * 60)
 
         try:
-            from milvus.embed_templates import get_prompt_template
+            from recall.milvus.embed_templates import get_prompt_template
 
             # 调用LLM判断是否需要调用数据库检索工具
             db_ai = self.llm.invoke([

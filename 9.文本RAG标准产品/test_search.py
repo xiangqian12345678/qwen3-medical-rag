@@ -15,11 +15,10 @@ project_dir = Path(__file__).parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
-from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 
-from search.web_search import create_web_search_tool, llm_network_search
-from search.web_searcher import get_ws, reset_kb
+from recall.search import create_web_search_tool, llm_network_search
+from recall.search.web_search import get_ws, reset_kb
 
 # 配置日志
 logging.basicConfig(
@@ -171,7 +170,7 @@ class WebSearchTester:
         logger.info("=" * 60)
 
         try:
-            from search.search_templates import get_prompt_template
+            from recall.search import get_prompt_template
             from langchain_core.messages import HumanMessage, SystemMessage
 
             # 模拟已有充足文档的情况

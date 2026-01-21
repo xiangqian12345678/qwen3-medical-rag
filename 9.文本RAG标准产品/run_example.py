@@ -6,8 +6,8 @@
 import logging
 
 from app_config import APPConfig
-from kgraph.kg_loader import KGraphConfigLoader
-from milvus.embed_loader import EmbedConfigLoader
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.milvus.embed_loader import EmbedConfigLoader
 from multi_dialogue_agent import MultiDialogueAgent
 from rag_loader import RAGConfigLoader
 from utils import create_llm_client
