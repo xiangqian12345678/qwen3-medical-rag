@@ -13,7 +13,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from graph_searcher import GraphSearcher
+from kgraph_searcher import GraphSearcher
 from neo4j_connection import Neo4jConnection
 from kg_utils import json_to_list_document, _should_call_tool
 from kg_templates import get_prompt_template
