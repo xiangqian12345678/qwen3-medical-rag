@@ -19,10 +19,7 @@ project_dir = Path(__file__).parent.parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
-try:
-    from ..config.models import LLMConfig, DenseConfig
-except ImportError:
-    from config.models import LLMConfig, DenseConfig
+from rag_config import LLMConfig
 
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
@@ -79,34 +76,6 @@ def create_llm_client(config: LLMConfig) -> BaseChatModel:
         raise ValueError(f"不支持的LLM提供商: {config.provider}")
 
 
-def create_embedding_client(config: DenseConfig) -> Embeddings:
-    """创建嵌入客户端"""
-    if config.provider == "openai":
-        kwargs = {
-            "model": config.model,
-            "dimensions": config.dimension
-        }
-        if config.api_key:
-            kwargs["api_key"] = config.api_key
-        if config.base_url:
-            kwargs["base_url"] = config.base_url
-        return OpenAIEmbeddings(**kwargs)
-
-    elif config.provider == "ollama":
-        kwargs = {"model": config.model}
-        if config.base_url:
-            kwargs["base_url"] = config.base_url
-        return OllamaEmbeddings(**kwargs)
-
-    elif config.provider == "dashscope":
-        kwargs = {
-            "model": config.model
-        }
-        logger.info(f"创建 DashScope Embeddings: {config.model}")
-        return DashScopeEmbeddings(**kwargs)
-
-    else:
-        raise ValueError(f"不支持的嵌入提供商: {config.provider}")
 
 
 def format_documents(documents) -> str:

@@ -10,8 +10,8 @@ import numpy as np
 from langchain_core.documents import Document
 from sklearn.metrics.pairwise import cosine_similarity
 
-from kgraph_schema import kg_schema
-from neo4j_connection import Neo4jConnection
+from .kgraph_schema import kg_schema
+from .neo4j_connection import Neo4jConnection
 
 if TYPE_CHECKING:
     pass

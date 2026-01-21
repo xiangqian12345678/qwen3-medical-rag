@@ -7,6 +7,9 @@ from typing import List, Union
 
 from dotenv import load_dotenv
 
+from kgraph.kg_loader import KGraphConfigLoader
+from milvus.embed_loader import EmbedConfigLoader
+
 # 加载环境变量（优先级：.env文件 > 系统环境变量）
 project_root = Path(__file__).parent.parent
 env_file = project_root / ".env"
@@ -25,27 +28,11 @@ logger = logging.getLogger(__name__)
 from rag_config import AppConfig
 from utils import create_llm_client
 
-# 导入拆分后的模块 - 使用绝对导入确保模块能被正确找到
-try:
-    # 尝试相对导入（当作为包导入时）
-    from .milvus import llm_db_search, create_db_search_tool
-    from .search import llm_network_search, create_web_search_tool
-    from .kgraph import llm_kgraph_search, create_kgraph_search_tool
-    from .rag_answer import rag_node, judge_node, finish_success, finish_fail
-except ImportError as e:
-    logger.warning(f"相对导入失败 ({e})，尝试直接导入...")
-    # 回退到直接导入（当直接运行文件时）
-    try:
-        from agent.milvus import llm_db_search, create_db_search_tool
-        from agent.search import llm_network_search, create_web_search_tool
-        from agent.kgraph import llm_kgraph_search, create_kgraph_search_tool
-        from agent.rag_answer import rag_node, judge_node, finish_success, finish_fail
-    except ImportError:
-        # 尝试使用绝对路径导入
-        from milvus import llm_db_search, create_db_search_tool
-        from search import llm_network_search, create_web_search_tool
-        from kgraph import llm_kgraph_search, create_kgraph_search_tool
-        from rag_answer import rag_node, judge_node, finish_success, finish_fail
+# 尝试相对导入（当作为包导入时）
+from milvus import llm_db_search, create_db_search_tool
+from search import llm_network_search, create_web_search_tool
+from kgraph import llm_kgraph_search, create_kgraph_search_tool
+from rag_answer import rag_node, judge_node, finish_success, finish_fail
 
 
 # =============================================================================
@@ -249,7 +236,7 @@ class SearchGraph:
             power_model: 强大模型实例（用于工具调用）
             websearch_func: 网络搜索函数（可选）
         """
-        self.config = appConfig
+        self.appConfig = appConfig
 
         # 创建数据库检索工具
         db_tool, db_llm, db_node = create_db_search_tool(appConfig, power_model)
@@ -295,18 +282,18 @@ class SearchGraph:
             llm_db_search,
             llm=self.db_search_llm,
             db_tool_node=self.db_tool_node,
-            show_debug=self.config.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("db_search", db_search_node_func)
 
         # 只在启用网络搜索且工具创建成功时添加web_search节点
-        if self.config.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
             network_search_node_func = partial(
                 llm_network_search,
                 judge_llm=self.llm,
                 network_search_llm=self.network_search_llm,
                 network_tool_node=self.network_tool_node,
-                show_debug=self.config.multi_dialogue_rag.console_debug
+                show_debug=self.appConfig.multi_dialogue_rag.console_debug
             )
             graph.add_node("web_search", network_search_node_func)
 
@@ -316,7 +303,7 @@ class SearchGraph:
                 llm_kgraph_search,
                 llm=self.kgraph_search_llm,
                 kgraph_tool_node=self.kgraph_tool_node,
-                show_debug=self.config.multi_dialogue_rag.console_debug
+                show_debug=self.appConfig.multi_dialogue_rag.console_debug
             )
             graph.add_node("kgraph_search", kgraph_search_node_func)
 
@@ -324,7 +311,7 @@ class SearchGraph:
         rag_node_func = partial(
             rag_node,
             llm=self.llm,
-            show_debug=self.config.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("rag", rag_node_func)
 
@@ -336,7 +323,7 @@ class SearchGraph:
         judge_node_func = partial(
             judge_node,
             llm=self.llm,
-            show_debug=self.config.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("judge", judge_node_func)
 
@@ -344,7 +331,7 @@ class SearchGraph:
         graph.set_entry_point("db_search")
 
         last_node = "db_search"
-        if self.config.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
@@ -400,7 +387,7 @@ class SearchGraph:
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": self.config.agent.max_attempts,
+            "retry": self.appConfig.agent.max_attempts,
             "final": "",
             "judge_result": ""
         }
@@ -453,7 +440,7 @@ if __name__ == "__main__":
     """
 
     import logging
-    from config.loader import ConfigLoader
+    from rag_loader import RAGConfigLoader
 
     # 配置日志
     logging.basicConfig(
@@ -468,22 +455,24 @@ if __name__ == "__main__":
     try:
         # 1. 加载配置
         logger.info("\n[1/5] 加载配置...")
-        config_manager = ConfigLoader()
-        config = config_manager.config
+        rag_config = RAGConfigLoader().config  # 与milvus_config 和 kgraph_config 的loader不同
+        milvus_config = EmbedConfigLoader()
+        kgraph_config = KGraphConfigLoader()
+
         logger.info(f"配置加载成功!")
-        logger.info(f"  - Milvus: {config.milvus.uri}")
-        logger.info(f"  - Collection: {config.milvus.collection_name}")
-        logger.info(f"  - LLM: {config.llm.model} ({config.llm.provider})")
-        logger.info(f"  - 网络搜索: {'启用' if config.agent.network_search_enabled else '禁用'}")
+        logger.info(f"  - Milvus: {milvus_config.milvus.uri}")
+        logger.info(f"  - Collection: {milvus_config.milvus.collection_name}")
+        logger.info(f"  - LLM: {rag_config.llm.model} ({rag_config.llm.provider})")
+        logger.info(f"  - 网络搜索: {'启用' if rag_config.agent.network_search_enabled else '禁用'}")
 
         # 2. 创建LLM客户端
         logger.info("\n[2/5] 创建LLM客户端...")
-        power_model = create_llm_client(config.llm)
+        power_model = create_llm_client(rag_config.llm)
         logger.info(f"LLM客户端创建成功!")
 
         # 3. 初始化SearchGraph
         logger.info("\n[3/5] 初始化SearchGraph...")
-        search_graph = SearchGraph(config, power_model=power_model)
+        search_graph = SearchGraph(rag_config.config, power_model=power_model)
         search_graph.build_search_graph()
         logger.info("SearchGraph初始化成功!")
         logger.info(f"图结构: db_search -> web_search(可选) -> 图谱搜索(可选) -> rag -> judge(可选) -> finish")

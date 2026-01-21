@@ -23,10 +23,10 @@ if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
 # 尝试相对导入（当作为包导入时）
-from embed_searcher import get_kb
-from embed_config import SingleSearchRequest
-from embed_utils import json_to_list_document, _should_call_tool
-from embed_templates import get_prompt_template
+from .embed_searcher import get_kb
+from .embed_config import SingleSearchRequest
+from .embed_utils import json_to_list_document, _should_call_tool
+from .embed_templates import get_prompt_template
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
@@ -170,7 +170,7 @@ def create_db_search_tool(
         Returns: 检索结果的JSON字符串
         """
         try:
-            from embed_config import SearchRequest, FusionSpec
+            from .embed_config import SearchRequest, FusionSpec
             kb = get_kb(config.as_dict)
 
             search_req = SearchRequest(

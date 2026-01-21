@@ -1,31 +1,17 @@
 """RAG回答生成模块"""
 import logging
-import sys
-from pathlib import Path
-from typing import TYPE_CHECKING
 from typing import List
+from typing import TYPE_CHECKING
 
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-# 添加当前项目目录到 Python 路径（支持直接运行）
-project_dir = Path(__file__).parent.parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
-
-# 导入配置和工具函数
-try:
-    # 尝试相对导入（当作为包导入时）
-    from prompts.templates import get_prompt_template
-    from agent.utils import del_think, format_document_str
-except ImportError:
-    # 回退到直接导入（当直接运行文件时）
-    from prompts.templates import get_prompt_template
-    from agent.utils import del_think, format_document_str
+from templates import get_prompt_template
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
+
 
     class SearchMessagesState(TypedDict, total=False):
         query: str

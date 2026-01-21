@@ -11,7 +11,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import DashScopeEmbeddings
 
-from embed_config import DenseFieldConfig
+from .embed_config import DenseFieldConfig
 
 logger = logging.getLogger(__name__)
 if TYPE_CHECKING:

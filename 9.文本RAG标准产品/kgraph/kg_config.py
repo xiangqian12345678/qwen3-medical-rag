@@ -1,16 +1,5 @@
 """知识图谱配置数据模型"""
-from typing import Optional, Literal
-from pydantic import BaseModel, Field
-
-
-class LLMConfig(BaseModel):
-    """LLM配置"""
-    provider: Literal['openai', 'dashscope', 'ollama'] = 'ollama'
-    model: str
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
-    temperature: float = 0.1
-    max_tokens: Optional[int] = None
+from pydantic import BaseModel
 
 
 class Neo4jConfig(BaseModel):

@@ -451,7 +451,7 @@ def run_parallel_subgraphs(state: MedicalAgentState, search_graph: "SearchGraph"
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": search_graph.config.agent.max_attempts,
+            "retry": search_graph.appConfig.agent.max_attempts,
             "final": "",
         }
         return search_graph.run(init_state)

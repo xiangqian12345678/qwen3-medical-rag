@@ -1,8 +1,10 @@
 """网络搜索模块"""
-import json
+"""网络搜索模块"""
+import json  # 添加这一行
 import logging
 from typing import List
 from typing import TYPE_CHECKING
+
 
 from langchain.output_parsers import OutputFixingParser
 from langchain.tools import tool
@@ -15,8 +17,9 @@ from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
-from search_templates import get_prompt_template
-from search_utils import del_think, format_document_str, json_to_list_document, _should_call_tool
+from .search_templates import get_prompt_template
+from .search_utils import del_think, format_document_str, json_to_list_document, _should_call_tool
+from .web_searcher import get_ws, reset_kb
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
@@ -226,8 +229,6 @@ if __name__ == "__main__":
     print("\n[测试1] 初始化组件...")
     try:
         # 先初始化 WebSearcher
-        from web_searcher import get_ws, reset_kb
-
         reset_kb()  # 重置单例
         get_ws({})  # 初始化（WebSearcher 当前不需要配置）
         print("✓ WebSearcher 初始化成功")
@@ -244,6 +245,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ 初始化失败: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
 
@@ -261,6 +263,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ 创建网络搜索工具失败: {e}")
         import traceback
+
         traceback.print_exc()
 
     # 3. 测试网络搜索执行
@@ -286,6 +289,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"✗ 网络搜索执行失败: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         print("⚠ 前置条件不满足，跳过搜索执行测试")
@@ -333,11 +337,12 @@ if __name__ == "__main__":
             print(f"  - 输出文档数: {len(result_state.get('docs', []))}")
             print(f"  - 其他消息数: {len(result_state.get('other_messages', []))}")
             if len(result_state.get('docs', [])) > 0:
-             print(f"  - 第一个文档内容: {result_state.get('docs', [])[0].page_content[:100]}")
+                print(f"  - 第一个文档内容: {result_state.get('docs', [])[0].page_content[:100]}")
 
         except Exception as e:
             print(f"✗ llm_network_search节点执行失败: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         print("⚠ 前置条件不满足，跳过节点测试")

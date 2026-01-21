@@ -57,6 +57,11 @@ class RAGConfigLoader:
         self._dict = raw
         self._app_config = AppConfig(**raw)
 
+        self.llm = self._app_config.llm
+        self.agent = self._app_config.agent
+        self.multi_dialogue_rag = self._app_config.multi_dialogue_rag
+
+
     def _replace_env_vars(self, data: Any) -> Any:
         """递归替换配置中的环境变量"""
         if isinstance(data, str):

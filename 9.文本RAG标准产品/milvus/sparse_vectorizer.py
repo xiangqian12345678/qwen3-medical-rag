@@ -5,8 +5,8 @@ from multiprocessing import Pool, cpu_count
 
 import pkuseg
 
-from embed_config import SparseFieldConfig
-from embed_vocab import Vocabulary
+from .embed_config import SparseFieldConfig
+from .embed_vocab import Vocabulary
 
 logger = logging.getLogger(__name__)
 

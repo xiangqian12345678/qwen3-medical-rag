@@ -96,7 +96,7 @@ dense_fields:
 sparse_fields:
   chunk:
     embed: true
-    vocab_path: ../../output/vocab/vocab.pkl.gz
+    vocab_path: ../output/vocab/vocab.pkl.gz
     algorithm: BM25
     k1: 1.5
     b: 0.75

@@ -5,14 +5,14 @@ from typing import Dict, Any, Optional, Union, List
 from pymilvus import connections, Collection, AnnSearchRequest, RRFRanker, WeightedRanker
 from langchain_core.documents import Document
 
-from embed_config import (
+from .embed_config import (
     EmbedConfig, SearchRequest, SingleSearchRequest, FusionSpec,
     DenseFieldConfig, SparseFieldConfig
 )
-from embed_loader import EmbedConfigLoader
-from embedding_client import create_embedding_client
-from sparse_vectorizer import SparseVectorProcessor
-from embed_vocab import Vocabulary
+from .embed_loader import EmbedConfigLoader
+from .embedding_client import create_embedding_client
+from .sparse_vectorizer import SparseVectorProcessor
+from .embed_vocab import Vocabulary
 
 logger = logging.getLogger(__name__)
 

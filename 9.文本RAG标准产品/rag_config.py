@@ -1,22 +1,10 @@
 """全局RAG配置数据模型"""
-import sys
-from pathlib import Path
 from typing import Optional, Literal
 
 from pydantic import BaseModel, Field
 
-# 添加当前目录到 Python 路径（支持直接运行）
-current_dir = Path(__file__).parent
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
-
-# 导入各子模块的配置类
-from kgraph import Neo4jConfig
-from milvus.embed_config import MilvusConfig, EmbeddingConfig
-
-
 # =============================================================================
-# LLM 配置
+# LLM配置
 # =============================================================================
 class LLMConfig(BaseModel):
     """LLM配置"""
@@ -26,24 +14,6 @@ class LLMConfig(BaseModel):
     api_key: Optional[str] = None
     temperature: float = 0.1
     max_tokens: Optional[int] = None
-
-
-# =============================================================================
-# 数据配置
-# =============================================================================
-class DataConfig(BaseModel):
-    """数据配置"""
-    chunk_field: str = "chunk"
-    parent_chunk_field: str = "parent_chunk"
-    summary_field: str = "summary"
-    questions_field: str = "questions"
-    document_field: Optional[str] = None
-    source_field: Optional[str] = "source"
-    source_name_field: Optional[str] = "source_name"
-    lt_doc_id_field: Optional[str] = "lt_doc_id"
-    chunk_id_field: Optional[str] = "chunk_id"
-    hash_id_field: Optional[str] = "hash_id"
-
 
 # =============================================================================
 # Agent配置
@@ -82,10 +52,6 @@ class MultiDialogueRagConfig(BaseModel):
 # =============================================================================
 class AppConfig(BaseModel):
     """应用主配置"""
-    milvus: MilvusConfig
-    neo4j: Neo4jConfig
-    embedding: EmbeddingConfig
     llm: LLMConfig
-    data: DataConfig
     agent: AgentConfig
     multi_dialogue_rag: MultiDialogueRagConfig

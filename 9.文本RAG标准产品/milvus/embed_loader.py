@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from embed_config import (
+from .embed_config import (
     MilvusConfig, EmbedConfig, DenseFieldConfig,
     SparseFieldConfig, FusionConfig, DefaultSearchConfig
 )

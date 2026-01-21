@@ -1,4 +1,5 @@
 """数据库工厂类，用于创建和管理知识库实例"""
+import json
 import logging
 from typing import Dict, Any, Optional, Union
 

@@ -13,10 +13,11 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from kg_templates import get_prompt_template
-from kg_utils import json_to_list_document, _should_call_tool
-from kgraph_searcher import GraphSearcher
-from neo4j_connection import Neo4jConnection
+from .kg_templates import get_prompt_template
+from .kg_utils import json_to_list_document, _should_call_tool
+from .kgraph_searcher import GraphSearcher
+from .neo4j_connection import Neo4jConnection
+
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict

@@ -5,7 +5,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
-from embed_config import DenseFieldConfig
+from .embed_config import DenseFieldConfig
 
 
 class DashScopeEmbeddings(Embeddings):
