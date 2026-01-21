@@ -117,10 +117,10 @@ def create_kgraph_search_tool(
     Returns:
         tuple: (kgraph_search_tool, kgraph_search_llm, kgraph_tool_node)
     """
-    if config.agent.kgraph_search_enabled is False:
+    if config.kgraph_agent_config.kgraph_search_enabled is False:
         return None, None, None
 
-    cnt = config.agent.kgraph_search_cnt
+    cnt = config.kgraph_agent_config.kgraph_search_cnt
 
     # 创建Neo4j连接
     neo4j_conn = Neo4jConnection(config)
@@ -133,10 +133,10 @@ def create_kgraph_search_tool(
     # 创建图谱检索器（传入嵌入配置以支持向量检索）
     # 使用 text_dense 配置作为嵌入模型
     embedding_config = {
-        "provider": config.embedding.text_dense.provider,
-        "model": config.embedding.text_dense.model,
-        "api_key": config.embedding.text_dense.api_key,
-        "base_url": config.embedding.text_dense.base_url
+        "provider": config.get("embedding.provider", "ollama"),
+        "model": config.get("embedding.model", "nomic-embed-text"),
+        "api_key": config.get("embedding.api_key", None),
+        "base_url": config.get("embedding.base_url", "http://localhost:11434/v1")
     }
     graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
 
@@ -178,13 +178,13 @@ if __name__ == "__main__":
 
     try:
         # 加载配置
-        from kg_config.loader import load_config
+        from kg_loader import KGraphConfigLoader
 
-        config = load_config()
+        config = KGraphConfigLoader()
 
         print(f"\n📊 配置信息:")
-        print(f"   Neo4j URI: {config.neo4j.uri}")
-        print(f"   数据库: {config.neo4j.database}")
+        print(f"   Neo4j URI: {config.neo4j_config.uri}")
+        print(f"   数据库: {config.neo4j_config.database}")
 
         # 创建Neo4j连接
         print(f"\n🔌 连接Neo4j数据库...")
@@ -199,7 +199,13 @@ if __name__ == "__main__":
         print(f"✅ Neo4j连接成功")
 
         # 创建图谱检索器
-        graph_searcher = GraphSearcher(neo4j_conn)
+        embedding_config = {
+            "provider": config.get("embedding.provider", "ollama"),
+            "model": config.get("embedding.model", "nomic-embed-text"),
+            "api_key": config.get("embedding.api_key", None),
+            "base_url": config.get("embedding.base_url", "http://localhost:11434/v1")
+        }
+        graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
 
         # 示例1: 关键词检索
         print(f"\n" + "=" * 60)
@@ -207,10 +213,9 @@ if __name__ == "__main__":
         print("=" * 60)
         keyword = "房颤的治疗目的是什么？"
         print(f"搜索关键词: '{keyword}'")
-        docs = graph_searcher.search_by_keyword(keyword, limit=5)
-        print(f"✅ 找到 {len(docs)} 个实体:")
-        for i, doc in enumerate(docs, 1):
-            print(f"   {i}. {doc.page_content}")
+        dict = graph_searcher.search_graph_by_query(keyword, top_k=5)
+        content = dict.get("content", "")
+        print(f"  content: {content}")
 
         # 示例2: 关系检索
         print(f"\n" + "=" * 60)
@@ -229,7 +234,7 @@ if __name__ == "__main__":
         print("=" * 60)
         keyword = "糖尿病"
         print(f"综合检索关键词: '{keyword}'")
-        result = graph_searcher.search_graph_by_query(keyword, top_k=10)
+        result = graph_searcher.search_by_keyword(keyword, limit=10)
         vdb_results = result.get("vdb_results", [])
         print(f"✅ 找到 {len(vdb_results)} 条结果（实体+关系）:")
         for i, doc in enumerate(vdb_results, 1):
@@ -244,10 +249,10 @@ if __name__ == "__main__":
         from langchain_openai import ChatOpenAI
 
         llm = ChatOpenAI(
-            model=config.model.llm_model,
-            temperature=config.llm.temperature,
-            base_url=config.llm.base_url,
-            api_key=config.llm.api_key or "dummy-key"
+            model=config.llm_config.model,
+            temperature=config.llm_config.temperature,
+            base_url=config.llm_config.base_url,
+            api_key=config.llm_config.api_key or "dummy-key"
         )
 
         # 创建检索工具

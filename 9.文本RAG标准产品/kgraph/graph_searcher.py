@@ -145,7 +145,7 @@ class GraphSearcher:
         except Exception as e:
             logger.error(f"加载向量索引失败: {e}")
 
-    def search_by_vector(self, query_text: str, threshold: float = 0.7, top_k: int = 5) -> List[Document]:
+    def search_by_vector(self, query_text: str, threshold: float = 0.5, top_k: int = 5) -> List[Document]:
         """
         基于向量相似度搜索实体
 
@@ -237,6 +237,8 @@ class GraphSearcher:
                     documents.append(Document(page_content=content, metadata=metadata))
 
                 logger.info(f"图谱检索找到 {len(documents)} 个节点")
+                if documents:
+                    logger.debug(f"检索到的节点: {[d.metadata['entity_name'] for d in documents[:3]]}")
                 return documents
         except Exception as e:
             logger.error(f"图谱检索失败: {e}")
@@ -338,7 +340,7 @@ class GraphSearcher:
                               entity_types: List[str] = None,
                               relation_types: List[str] = None,
                               depth: int = 2,
-                              similarity_threshold: float = 0.7,
+                              similarity_threshold: float = 0.5,
                               top_k: int = 5) -> Dict:
         """
         根据查询文本检索知识图谱，返回格式化的文档结果
@@ -413,13 +415,13 @@ class GraphSearcher:
 
         # 4. 组织结果为文档格式
         vdb_results = self._format_kg_results(kg_results)
-        document = self._format_results_as_document(vdb_results)
+        content = self._format_results_as_document(vdb_results, top_k=top_k)
 
         processing_time = time.time() - start_time
 
         return {
             "vdb_results": vdb_results,
-            "document": document,
+            "content": content,
             "metadata": {
                 "query": query_text,
                 "similar_entities_count": len(all_similar_entity_ids),
@@ -429,9 +431,9 @@ class GraphSearcher:
         }
 
     def _extract_entities_from_query(self,
-                                      query_text: str,
-                                      entity_types: List[str],
-                                      relation_types: List[str]) -> List[Dict]:
+                                     query_text: str,
+                                     entity_types: List[str],
+                                     relation_types: List[str]) -> List[Dict]:
         """
         从查询文本中提取实体
 
@@ -460,26 +462,25 @@ class GraphSearcher:
         # 如果向量检索不可用，尝试从查询中提取潜在的实体关键词
         entities = []
 
-        # 如果有嵌入客户端，可以尝试更智能的提取
-        if not self.embedding_client:
-            # 简单的分词处理，提取可能的实体名
-            # 这是一个简化版本，实际应该使用LLM进行提取
-            words = query_text.replace('？', '').replace('?', '').replace('。', '').replace('.', '').split()
-            for word in words:
-                if len(word) >= 2:  # 只保留长度>=2的词
-                    entities.append({
-                        "name": word,
-                        "type": entity_types[0] if entity_types else "实体"
-                    })
-            return entities
+        # 简单的分词处理，提取可能的实体名
+        # 移除标点符号并分割
+        clean_text = query_text.replace('？', '').replace('?', '').replace('。', '').replace('.', '')
+        clean_text = clean_text.replace('的', '').replace('是', '').replace('什么', '')
+        words = clean_text.split()
 
-        # 尝试使用向量检索找到相关实体，然后提取
+        for word in words:
+            if len(word) >= 2:  # 只保留长度>=2的词
+                entities.append({
+                    "name": word,
+                    "type": entity_types[0] if entity_types else "实体"
+                })
+
         return entities
 
     def _search_similar_entities(self,
-                                  entity_text: str,
-                                  threshold: float,
-                                  top_k: int) -> List[Dict]:
+                                 entity_text: str,
+                                 threshold: float,
+                                 top_k: int) -> List[Dict]:
         """
         搜索相似实体
 
@@ -541,9 +542,12 @@ class GraphSearcher:
             formatted = f"{source_type}: {source} -> {relationship} -> {target_type}: {target}"
             vdb_results.append(formatted)
 
+        # 去重
+        vdb_results = list(dict.fromkeys(vdb_results))
+
         return vdb_results
 
-    def _format_results_as_document(self, vdb_results: List[str]) -> str:
+    def _format_results_as_document(self, vdb_results: List[str], top_k: int) -> str:
         """
         将查询结果组织成文档格式
 
@@ -557,9 +561,8 @@ class GraphSearcher:
             return ""
 
         vdb_desc = "相关文档片段：\n"
-        for i, doc in enumerate(vdb_results[:3]):
-            vdb_desc += f"片段{i+1}: {doc[:200]}...\n"
-
+        for i, doc in enumerate(vdb_results[:top_k]):
+            vdb_desc += f"片段{i + 1}: {doc[:200]}...\n"
         return vdb_desc
 
 

@@ -8,6 +8,28 @@ neo4j:
   max_connection_pool_size: 50
   connection_timeout: 30.0
 
+#llm:
+#  provider: ollama
+#  api_key:
+#  base_url: http://localhost:11434/v1
+#  model: qwen3:4b
+#  temperature: 0.1
+#  max_tokens: 2048
+#
+#embedding:
+#  text_dense:
+#    provider: ollama
+#    model: nomic-embed-text
+#    api_key: null
+#    base_url: http://localhost:11434/v1
+
+embedding:
+  provider: dashscope
+  model: text-embedding-v2
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+  dimension: 1536
+
 llm:
   provider: dashscope
   api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
