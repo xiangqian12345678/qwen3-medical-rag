@@ -15,7 +15,7 @@ if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from kgraph.kg_loader import KGraphConfigLoader
 from kgraph.neo4j_connection import Neo4jConnection
@@ -78,6 +78,7 @@ class KGraphSearchTester:
 
             rag_config = RAGConfigLoader().config
             power_model = create_llm_client(rag_config.llm)
+            self.llm = power_model
 
             logger.info("✓ LLM初始化成功")
 

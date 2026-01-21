@@ -19,34 +19,12 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-# 添加当前项目目录到 Python 路径（支持直接运行）
-project_dir = Path(__file__).parent.parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
+from .rag_config import RAGConfig
+from .utils import create_llm_client
+from .templates import get_prompt_template
+from .utils import strip_think_get_tokens
+from .search_graph import SearchGraph, SearchMessagesState
 
-# 导入配置和工具函数
-try:
-    # 尝试相对导入（当作为包导入时）
-    from ..config.models import AppConfig
-    from .utils import create_llm_client
-    from agent.templates import get_prompt_template
-    from .utils import strip_think_get_tokens
-except ImportError:
-    # 回退到直接导入（当直接运行文件时）
-    from config.models import AppConfig
-    from agent.utils import create_llm_client
-    from prompts.templates import get_prompt_template
-    from agent.utils import strip_think_get_tokens
-
-# 导入 SearchMessagesState 和 SearchGraph（类型注解需要，使用 TYPE_CHECKING）
-if TYPE_CHECKING:
-    from .search_graph import SearchGraph, SearchMessagesState
-else:
-    # 运行时只导入 SearchMessagesState（用于运行时类型检查）
-    try:
-        from .search_graph import SearchMessagesState
-    except ImportError:
-        from search_graph import SearchMessagesState
 
 logger = logging.getLogger(__name__)
 
@@ -451,7 +429,7 @@ def run_parallel_subgraphs(state: MedicalAgentState, search_graph: "SearchGraph"
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": search_graph.appConfig.agent.max_attempts,
+            "retry": search_graph.ragConfig.agent.max_attempts,
             "final": "",
         }
         return search_graph.run(init_state)

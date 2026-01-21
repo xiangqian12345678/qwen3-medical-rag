@@ -23,36 +23,36 @@ _kb_instance: Optional["EmbedSearcher"] = None
 class EmbedSearcher:
     """知识库检索器，封装向量数据库检索功能"""
 
-    def __init__(self, config: Union[EmbedConfigLoader, Dict[str, Any], EmbedConfig]):
+    def __init__(self, embedConfig: Union[EmbedConfigLoader, Dict[str, Any], EmbedConfig]):
         """
         初始化知识库
 
         Args:
-            config: 应用配置（EmbedConfigLoader实例、配置字典或EmbedConfig实例）
+            embedConfig: 应用配置（EmbedConfigLoader实例、配置字典或EmbedConfig实例）
         """
         # 如果传入的是字典，转换为EmbedConfig对象
-        if isinstance(config, dict):
-            self.config = EmbedConfig(**config)
-        elif isinstance(config, EmbedConfigLoader):
-            self.config = EmbedConfig(
-                milvus=config.milvus,
-                dense_fields=config.dense_fields,
-                sparse_fields=config.sparse_fields,
-                fusion=config.fusion,
-                default_search=config.default_search
+        if isinstance(embedConfig, dict):
+            self.embedConfig = EmbedConfig(**embedConfig)
+        elif isinstance(embedConfig, EmbedConfigLoader):
+            self.embedConfig = EmbedConfig(
+                milvus=embedConfig.milvus,
+                dense_fields=embedConfig.dense_fields,
+                sparse_fields=embedConfig.sparse_fields,
+                fusion=embedConfig.fusion,
+                default_search=embedConfig.default_search
             )
         else:
             # 传入的是EmbedConfig实例
-            self.config = config
+            self.embedConfig = embedConfig
 
-        self.collection_name = self.config.milvus.collection_name
+        self.collection_name = self.embedConfig.milvus.collection_name
 
         # 连接Milvus
-        logger.info(f"连接Milvus: {self.config.milvus.uri}")
+        logger.info(f"连接Milvus: {self.embedConfig.milvus.uri}")
         connections.connect(
             alias="default",
-            uri=self.config.milvus.uri,
-            token=self.config.milvus.token
+            uri=self.embedConfig.milvus.uri,
+            token=self.embedConfig.milvus.token
         )
 
         # 获取集合
@@ -60,7 +60,7 @@ class EmbedSearcher:
         logger.info(f"加载集合: {self.collection_name}")
 
         # 初始化向量处理器
-        self.field_processor = VectorFieldProcessor(self.config)
+        self.field_processor = VectorFieldProcessor(self.embedConfig)
 
     def search(self, req: SearchRequest) -> List[Document]:
         """
@@ -94,16 +94,16 @@ class EmbedSearcher:
                 param=search_params,
                 limit=req_obj.limit,
                 expr=req_obj.expr,
-                output_fields=req.output_fields or self.config.default_search.output_fields
+                output_fields=req.output_fields or self.embedConfig.default_search.output_fields
             )
         else:
             # 多路检索或需要融合
-            ranker = self._create_ranker(req.fuse or self.config.fusion)
+            ranker = self._create_ranker(req.fuse or self.embedConfig.fusion)
             results = self.collection.hybrid_search(
                 reqs=ann_search_requests,
                 rerank=ranker,
-                limit=req.top_k or self.config.default_search.top_k,
-                output_fields=req.output_fields or self.config.default_search.output_fields
+                limit=req.top_k or self.embedConfig.default_search.top_k,
+                output_fields=req.output_fields or self.embedConfig.default_search.output_fields
             )
 
         # 转换为Document对象
@@ -115,7 +115,7 @@ class EmbedSearcher:
             documents.append(doc)
 
         # 按 limit 截断
-        limit = req.limit or self.config.default_search.limit
+        limit = req.limit or self.embedConfig.default_search.limit
         return documents[:limit]
 
     def _build_ann_search_request(self, query: str, single_req: SingleSearchRequest) -> AnnSearchRequest:
@@ -155,13 +155,13 @@ class EmbedSearcher:
         # 判断是稠密向量还是稀疏向量
         if anns_field.endswith("_sparse"):
             # 稀疏向量
-            for field_name, field_config in self.config.sparse_fields.items():
+            for field_name, field_config in self.embedConfig.sparse_fields.items():
                 if field_config.index_field == anns_field:
                     return self.field_processor.get_sparse_vector(query, field_name)
             return query
         else:
             # 稠密向量
-            for field_name, field_config in self.config.dense_fields.items():
+            for field_name, field_config in self.embedConfig.dense_fields.items():
                 if field_config.index_field == anns_field:
                     return self.field_processor.get_dense_embedding(field_name, query)
             raise ValueError(f"未知的检索字段: {anns_field}")
@@ -180,7 +180,7 @@ class EmbedSearcher:
         elif fusion.method == "weighted":
             if fusion.weights is None:
                 # 使用配置中的权重
-                weights = list(self.config.fusion.weights.values())
+                weights = list(self.embedConfig.fusion.weights.values())
             else:
                 weights = list(fusion.weights.values())
             return WeightedRanker(weights)

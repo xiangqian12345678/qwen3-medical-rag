@@ -16,9 +16,9 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
 try:
-    from rag_config import AppConfig
+    from rag_config import RAGConfig
 except ImportError:
-    from .rag_config import AppConfig
+    from .rag_config import RAGConfig
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class RAGConfigLoader:
         raw = self._replace_env_vars(raw)
 
         self._dict = raw
-        self._app_config = AppConfig(**raw)
+        self._app_config = RAGConfig(**raw)
 
         self.llm = self._app_config.llm
         self.agent = self._app_config.agent
@@ -77,7 +77,7 @@ class RAGConfigLoader:
             return data
 
     @property
-    def config(self) -> AppConfig:
+    def config(self) -> RAGConfig:
         """获取当前配置的 Pydantic 模型实例"""
         return self._app_config
 
@@ -91,7 +91,7 @@ class RAGConfigLoader:
             updates: Union[dict, list[tuple[str, Any]]],
             save: bool = False,
             save_path: str = ""
-    ) -> AppConfig:
+    ) -> RAGConfig:
         """动态修改配置的任意字段"""
         if isinstance(updates, dict):
             upd_dict = self._expand_dot_paths(updates)
@@ -99,7 +99,7 @@ class RAGConfigLoader:
             upd_dict = self._expand_dot_paths(dict(updates))
 
         merged = self._deep_merge(self._dict, upd_dict)
-        new_config = AppConfig(**merged)
+        new_config = RAGConfig(**merged)
 
         self._dict = merged
         self._app_config = new_config

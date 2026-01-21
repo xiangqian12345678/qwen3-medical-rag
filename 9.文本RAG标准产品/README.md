@@ -134,7 +134,7 @@ from agent import MultiDialogueAgent, create_llm_client
 
 # 加载配置
 config_manager = ConfigLoader()
-config = config_manager.appConfig
+config = config_manager.ragConfig
 
 # 创建LLM客户端
 power_model = create_llm_client(config.llm)

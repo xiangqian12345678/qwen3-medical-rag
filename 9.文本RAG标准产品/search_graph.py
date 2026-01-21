@@ -25,7 +25,7 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from rag_config import AppConfig
+from rag_config import RAGConfig
 from utils import create_llm_client
 
 # 尝试相对导入（当作为包导入时）
@@ -227,27 +227,27 @@ class SearchMessagesState(TypedDict, total=False):
 class SearchGraph:
     """搜索图：执行单个查询的RAG检索流程"""
 
-    def __init__(self, appConfig: AppConfig, power_model: BaseChatModel) -> None:
+    def __init__(self, ragConfig: RAGConfig, power_model: BaseChatModel) -> None:
         """
         初始化搜索图
 
         Args:
-            appConfig: 应用配置
+            ragConfig: 应用配置
             power_model: 强大模型实例（用于工具调用）
             websearch_func: 网络搜索函数（可选）
         """
-        self.appConfig = appConfig
+        self.ragConfig = ragConfig
 
         # 创建数据库检索工具
-        db_tool, db_llm, db_node = create_db_search_tool(appConfig, power_model)
+        db_tool, db_llm, db_node = create_db_search_tool(ragConfig, power_model)
         self.db_search_tool = db_tool
         self.db_search_llm = db_llm
         self.db_tool_node = db_node
 
         # 创建网络搜索工具(如果未启动，均赋值为: None)
-        if appConfig.agent.network_search_enabled:
+        if ragConfig.agent.network_search_enabled:
             web_tool, web_llm, web_node = create_web_search_tool(
-                search_cnt=appConfig.agent.network_search_cnt,
+                search_cnt=ragConfig.agent.network_search_cnt,
                 power_model=power_model
             )
             self.network_search_tool = web_tool
@@ -259,13 +259,13 @@ class SearchGraph:
             self.network_tool_node = None
 
         # 创建知识图谱检索工具
-        kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(appConfig, power_model)
+        kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(ragConfig, power_model)
         self.kgraph_search_tool = kgraph_tool
         self.kgraph_search_llm = kgraph_llm
         self.kgraph_tool_node = kgraph_node
 
         # 创建用于回答的LLM客户端
-        self.llm = create_llm_client(appConfig.llm)
+        self.llm = create_llm_client(ragConfig.llm)
         self.search_graph = None
 
     def build_search_graph(self):
@@ -282,18 +282,18 @@ class SearchGraph:
             llm_db_search,
             llm=self.db_search_llm,
             db_tool_node=self.db_tool_node,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.ragConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("db_search", db_search_node_func)
 
         # 只在启用网络搜索且工具创建成功时添加web_search节点
-        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.ragConfig.agent.network_search_enabled and self.network_tool_node is not None:
             network_search_node_func = partial(
                 llm_network_search,
                 judge_llm=self.llm,
                 network_search_llm=self.network_search_llm,
                 network_tool_node=self.network_tool_node,
-                show_debug=self.appConfig.multi_dialogue_rag.console_debug
+                show_debug=self.ragConfig.multi_dialogue_rag.console_debug
             )
             graph.add_node("web_search", network_search_node_func)
 
@@ -303,7 +303,7 @@ class SearchGraph:
                 llm_kgraph_search,
                 llm=self.kgraph_search_llm,
                 kgraph_tool_node=self.kgraph_tool_node,
-                show_debug=self.appConfig.multi_dialogue_rag.console_debug
+                show_debug=self.ragConfig.multi_dialogue_rag.console_debug
             )
             graph.add_node("kgraph_search", kgraph_search_node_func)
 
@@ -311,7 +311,7 @@ class SearchGraph:
         rag_node_func = partial(
             rag_node,
             llm=self.llm,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.ragConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("rag", rag_node_func)
 
@@ -323,7 +323,7 @@ class SearchGraph:
         judge_node_func = partial(
             judge_node,
             llm=self.llm,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.ragConfig.multi_dialogue_rag.console_debug
         )
         graph.add_node("judge", judge_node_func)
 
@@ -331,7 +331,7 @@ class SearchGraph:
         graph.set_entry_point("db_search")
 
         last_node = "db_search"
-        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.ragConfig.agent.network_search_enabled and self.network_tool_node is not None:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
@@ -387,7 +387,7 @@ class SearchGraph:
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": self.appConfig.agent.max_attempts,
+            "retry": self.ragConfig.agent.max_attempts,
             "final": "",
             "judge_result": ""
         }
@@ -472,7 +472,7 @@ if __name__ == "__main__":
 
         # 3. 初始化SearchGraph
         logger.info("\n[3/5] 初始化SearchGraph...")
-        search_graph = SearchGraph(rag_config.config, power_model=power_model)
+        search_graph = SearchGraph(rag_config, power_model=power_model)
         search_graph.build_search_graph()
         logger.info("SearchGraph初始化成功!")
         logger.info(f"图结构: db_search -> web_search(可选) -> 图谱搜索(可选) -> rag -> judge(可选) -> finish")

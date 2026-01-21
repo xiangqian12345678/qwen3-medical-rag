@@ -50,7 +50,7 @@ class MultiDialogueRagConfig(BaseModel):
 # =============================================================================
 # 主配置
 # =============================================================================
-class AppConfig(BaseModel):
+class RAGConfig(BaseModel):
     """应用主配置"""
     llm: LLMConfig
     agent: AgentConfig

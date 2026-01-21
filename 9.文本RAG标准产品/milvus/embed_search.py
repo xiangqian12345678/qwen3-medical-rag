@@ -12,22 +12,12 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-# 添加项目根目录到 Python 路径（支持直接运行）
-project_dir = Path(__file__).parent.parent.parent.parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
-
-# 添加 agent 目录到 Python 路径
-agent_dir = Path(__file__).parent.parent
-if str(agent_dir) not in sys.path:
-    sys.path.insert(0, str(agent_dir))
-
-# 尝试相对导入（当作为包导入时）
 from .embed_searcher import get_kb
 from .embed_config import SingleSearchRequest
 from .embed_utils import json_to_list_document, _should_call_tool
 from .embed_templates import get_prompt_template
 
+# 当两个模块相互导入时（A 导入 B，B 也导入 A），会产生循环导入错误。使用 TYPE_CHECKING 可以避免运行时的循环导入
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
 

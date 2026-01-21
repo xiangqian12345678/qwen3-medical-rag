@@ -16,34 +16,34 @@ class Neo4jConnection:
     负责建立、维护和关闭数据库连接
     """
 
-    def __init__(self, appConfig):
+    def __init__(self, neo4jConfig):
         """
         初始化Neo4j连接
 
         Args:
-            appConfig: 应用配置（可以是字典、对象或配置模块）
+            neo4jConfig: 应用配置（可以是字典、对象或配置模块）
         """
-        self.appConfig = appConfig
+        self.neo4jConfig = neo4jConfig
         self.driver: Optional[GraphDatabase.driver] = None
 
         # 支持字典和对象两种配置方式
-        if isinstance(appConfig, dict):
-            self.uri = appConfig.get('uri', 'bolt://localhost:7687')
-            self.user = appConfig.get('user', 'neo4j')
-            self.password = appConfig.get('password', '')
-            self.database = appConfig.get('database', 'neo4j')
-            self.max_connection_lifetime = appConfig.get('max_connection_lifetime', 3600)
-            self.max_connection_pool_size = appConfig.get('max_connection_pool_size', 50)
-            self.connection_timeout = appConfig.get('connection_timeout', 30.0)
-        elif hasattr(appConfig, 'neo4j'):
+        if isinstance(neo4jConfig, dict):
+            self.uri = neo4jConfig.get('uri', 'bolt://localhost:7687')
+            self.user = neo4jConfig.get('user', 'neo4j')
+            self.password = neo4jConfig.get('password', '')
+            self.database = neo4jConfig.get('database', 'neo4j')
+            self.max_connection_lifetime = neo4jConfig.get('max_connection_lifetime', 3600)
+            self.max_connection_pool_size = neo4jConfig.get('max_connection_pool_size', 50)
+            self.connection_timeout = neo4jConfig.get('connection_timeout', 30.0)
+        elif hasattr(neo4jConfig, 'neo4j'):
             # 从配置对象中获取Neo4j连接参数
-            self.uri = getattr(appConfig.neo4j, 'uri', 'bolt://localhost:7687')
-            self.user = getattr(appConfig.neo4j, 'user', 'neo4j')
-            self.password = getattr(appConfig.neo4j, 'password', '')
-            self.database = getattr(appConfig.neo4j, 'database', 'neo4j')
-            self.max_connection_lifetime = getattr(appConfig.neo4j, 'max_connection_lifetime', 3600)
-            self.max_connection_pool_size = getattr(appConfig.neo4j, 'max_connection_pool_size', 50)
-            self.connection_timeout = getattr(appConfig.neo4j, 'connection_timeout', 30.0)
+            self.uri = getattr(neo4jConfig.neo4j, 'uri', 'bolt://localhost:7687')
+            self.user = getattr(neo4jConfig.neo4j, 'user', 'neo4j')
+            self.password = getattr(neo4jConfig.neo4j, 'password', '')
+            self.database = getattr(neo4jConfig.neo4j, 'database', 'neo4j')
+            self.max_connection_lifetime = getattr(neo4jConfig.neo4j, 'max_connection_lifetime', 3600)
+            self.max_connection_pool_size = getattr(neo4jConfig.neo4j, 'max_connection_pool_size', 50)
+            self.connection_timeout = getattr(neo4jConfig.neo4j, 'connection_timeout', 30.0)
         else:
             # 默认配置
             self.uri = 'bolt://localhost:7687'
