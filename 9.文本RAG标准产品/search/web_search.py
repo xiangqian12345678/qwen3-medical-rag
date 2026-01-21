@@ -156,23 +156,21 @@ def llm_network_search(
 
 
 def create_web_search_tool(
-        config,
-        power_model: BaseChatModel
+        search_cnt: int = 10,
+        power_model: BaseChatModel = None
 ):
     """
     创建网络搜索工具节点
 
     Args:
-        config: 应用配置 (SearchAgentConfig对象)
+        search_cnt: 网络搜索返回结果数量
         power_model: LLM实例
 
     Returns:
         tuple: (network_search_tool, network_search_llm, network_tool_node)
     """
-    if config.network_search_enabled is False:
+    if power_model is None:
         return None, None, None
-
-    cnt = config.network_search_cnt
 
     # 提前获取 WebSearcher 实例
     web_searcher = get_ws()
@@ -188,7 +186,7 @@ def create_web_search_tool(
         Returns:
             检索结果的 JSON 字符串
         """
-        results: List[Document] = web_searcher.search(query, cnt)
+        results: List[Document] = web_searcher.search(query, search_cnt)
         # 转换Document对象为字典列表
         results_dict = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in results]
         return json.dumps(
@@ -209,7 +207,7 @@ def create_web_search_tool(
 # =============================================================================
 if __name__ == "__main__":
     import os
-    from search_loader import SearchConfigLoader
+    from langchain_openai import ChatOpenAI
 
     # 配置日志
     logging.basicConfig(
@@ -221,58 +219,53 @@ if __name__ == "__main__":
     print("web_search.py 功能测试")
     print("=" * 60)
 
-    # 1. 测试配置加载
-    print("\n[测试1] 加载搜索配置...")
+    # 配置参数（不再使用配置文件）
+    network_search_cnt = 10  # 网络搜索返回结果数量
+
+    # 1. 测试初始化
+    print("\n[测试1] 初始化组件...")
     try:
-        loader = SearchConfigLoader()
-        config = loader.search_agent
-        print(f"✓ 配置加载成功")
-        print(f"  - 网络搜索启用: {config.network_search_enabled}")
-        print(f"  - 网络搜索结果数: {config.network_search_cnt}")
+        # 先初始化 WebSearcher
+        from web_searcher import get_ws, reset_kb
+
+        reset_kb()  # 重置单例
+        get_ws({})  # 初始化（WebSearcher 当前不需要配置）
+        print("✓ WebSearcher 初始化成功")
+
+        # 创建LLM实例（需要配置API Key）
+        llm = ChatOpenAI(
+            model=os.getenv("LLM_MODEL", "qwen3:4b"),
+            temperature=0.1,
+            base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
+            api_key=os.getenv("LLM_API_KEY", "sk-xxx")
+        )
+        print(f"✓ LLM初始化成功")
+
     except Exception as e:
-        print(f"✗ 配置加载失败: {e}")
-        config = None
+        print(f"✗ 初始化失败: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)
 
     # 2. 测试创建网络搜索工具
     print("\n[测试2] 创建网络搜索工具...")
     search_tool = None
-    if config and config.network_search_enabled:
-        try:
-            # 先初始化 WebSearcher
-            from web_searcher import get_ws, reset_kb
+    try:
+        # 创建网络搜索工具
+        search_tool, search_llm, tool_node = create_web_search_tool(
+            search_cnt=network_search_cnt,
+            power_model=llm
+        )
+        print(f"✓ 网络搜索工具创建成功")
 
-            reset_kb()  # 重置单例
-            get_ws({})  # 初始化（WebSearcher 当前不需要配置）
-            print("✓ WebSearcher 初始化成功")
-
-            # 创建LLM实例（需要配置API Key）
-            api_key = os.getenv("DASHSCOPE_API_KEY")
-            # 从环境变量或配置文件读取LLM配置
-            import os
-            from langchain_openai import ChatOpenAI
-
-            llm = ChatOpenAI(
-                model=os.getenv("LLM_MODEL", "qwen3:4b"),
-                temperature=0.1,
-                base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
-                api_key=os.getenv("LLM_API_KEY", "sk-xxx")
-            )
-
-            # 创建网络搜索工具
-            search_tool, search_llm, tool_node = create_web_search_tool(config, llm)
-            print(f"✓ 网络搜索工具创建成功")
-
-        except Exception as e:
-            print(f"✗ 创建网络搜索工具失败: {e}")
-            import traceback
-
-            traceback.print_exc()
-    else:
-        print("⚠ 网络搜索功能未启用，跳过工具创建测试")
+    except Exception as e:
+        print(f"✗ 创建网络搜索工具失败: {e}")
+        import traceback
+        traceback.print_exc()
 
     # 3. 测试网络搜索执行
     print("\n[测试3] 执行网络搜索...")
-    if config and config.network_search_enabled and llm and search_tool:
+    if llm and search_tool:
         try:
             search_query = "阿司匹林副作用"
             print(f"  搜索查询: {search_query}")
@@ -288,19 +281,18 @@ if __name__ == "__main__":
             results_data = json.loads(result)
             print(f"  - 检索到 {len(results_data)} 条结果")
             if results_data:
-                print(f"  - 第一条结果预览: {results_data[0]['page_content'][:100]}...")
+                print(f"  - 第一条结果预览: {results_data[0]['page_content'][:1000]}...")
 
         except Exception as e:
             print(f"✗ 网络搜索执行失败: {e}")
             import traceback
-
             traceback.print_exc()
     else:
         print("⚠ 前置条件不满足，跳过搜索执行测试")
 
     # 4. 测试llm_network_search节点（需要模拟state）
     print("\n[测试4] 测试llm_network_search节点...")
-    if config and config.network_search_enabled and llm and search_tool:
+    if llm and search_tool:
         try:
             from langchain_core.documents import Document
 
@@ -323,7 +315,10 @@ if __name__ == "__main__":
             print(f"  输入文档数: {len(test_state['docs'])}")
 
             # 创建工具节点
-            _, search_llm, tool_node = create_web_search_tool(config, llm)
+            _, search_llm, tool_node = create_web_search_tool(
+                search_cnt=network_search_cnt,
+                power_model=llm
+            )
 
             # 执行网络搜索节点
             result_state = llm_network_search(
@@ -343,7 +338,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"✗ llm_network_search节点执行失败: {e}")
             import traceback
-
             traceback.print_exc()
     else:
         print("⚠ 前置条件不满足，跳过节点测试")

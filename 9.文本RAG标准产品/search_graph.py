@@ -22,7 +22,7 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from config.models import AppConfig
+from rag_config import AppConfig
 from utils import create_llm_client
 
 # 导入拆分后的模块 - 使用绝对导入确保模块能被正确找到
@@ -35,10 +35,17 @@ try:
 except ImportError as e:
     logger.warning(f"相对导入失败 ({e})，尝试直接导入...")
     # 回退到直接导入（当直接运行文件时）
-    from agent.milvus import llm_db_search, create_db_search_tool
-    from agent.search import llm_network_search, create_web_search_tool
-    from agent.kgraph import llm_kgraph_search, create_kgraph_search_tool
-    from agent.rag_answer import rag_node, judge_node, finish_success, finish_fail
+    try:
+        from agent.milvus import llm_db_search, create_db_search_tool
+        from agent.search import llm_network_search, create_web_search_tool
+        from agent.kgraph import llm_kgraph_search, create_kgraph_search_tool
+        from agent.rag_answer import rag_node, judge_node, finish_success, finish_fail
+    except ImportError:
+        # 尝试使用绝对路径导入
+        from milvus import llm_db_search, create_db_search_tool
+        from search import llm_network_search, create_web_search_tool
+        from kgraph import llm_kgraph_search, create_kgraph_search_tool
+        from rag_answer import rag_node, judge_node, finish_success, finish_fail
 
 
 # =============================================================================
@@ -251,10 +258,18 @@ class SearchGraph:
         self.db_tool_node = db_node
 
         # 创建网络搜索工具(如果未启动，均赋值为: None)
-        web_tool, web_llm, web_node = create_web_search_tool(appConfig, power_model)
-        self.network_search_tool = web_tool
-        self.network_search_llm = web_llm
-        self.network_tool_node = web_node
+        if appConfig.agent.network_search_enabled:
+            web_tool, web_llm, web_node = create_web_search_tool(
+                search_cnt=appConfig.agent.network_search_cnt,
+                power_model=power_model
+            )
+            self.network_search_tool = web_tool
+            self.network_search_llm = web_llm
+            self.network_tool_node = web_node
+        else:
+            self.network_search_tool = None
+            self.network_search_llm = None
+            self.network_tool_node = None
 
         # 创建知识图谱检索工具
         kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(appConfig, power_model)

@@ -1,6 +1,0 @@
-# 搜索相关配置
-agent:
-  network_search_enabled: true
-  kgraph_search_enabled: true
-  network_search_cnt: 10
-  kgraph_search_cnt: 10

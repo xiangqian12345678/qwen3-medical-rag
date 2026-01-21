@@ -13,7 +13,6 @@ if str(current_dir) not in sys.path:
 # 导入各子模块的配置类
 from kgraph import Neo4jConfig
 from milvus.embed_config import MilvusConfig, EmbeddingConfig
-from search import SearchAgentConfig
 
 
 # =============================================================================
@@ -56,8 +55,9 @@ class AgentConfig(BaseModel):
     console_debug: bool = False
     max_ask_num: int = Field(default=5, gt=0, description="最大追问轮次")
 
-    # 子模块配置
-    search: SearchAgentConfig = Field(default_factory=SearchAgentConfig)
+    # 网络搜索配置参数
+    network_search_enabled: bool = False
+    network_search_cnt: int = 10
 
 
 # =============================================================================

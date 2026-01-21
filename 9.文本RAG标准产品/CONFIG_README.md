@@ -43,17 +43,14 @@
 
 ### 3. 搜索模块 (`agent/search/`)
 
-- **配置文件**: `search_config.yaml`
-  - 网络搜索配置
-
-- **配置类**: `search_config.py`
-  - `SearchAgentConfig`: 搜索Agent配置
-
-- **加载器**: `search_loader.py`
-  - `SearchConfigLoader`: 加载搜索配置
-
 - **工具函数**: `search_utils.py`
-  - （待添加搜索相关工具函数）
+  - 搜索相关工具函数
+
+- **工具函数**: `web_search.py`
+  - 网络搜索功能
+  - `create_web_search_tool()`: 创建网络搜索工具
+
+注意：搜索模块不再使用配置文件，通过函数参数直接控制行为。
 
 ### 4. 全局RAG配置 (`/`)
 
@@ -66,7 +63,7 @@
 - **配置类**: `rag_config.py`
   - `LLMConfig`: LLM配置
   - `DataConfig`: 数据字段配置
-  - `AgentConfig`: Agent配置（包含kgraph和search子配置）
+  - `AgentConfig`: Agent配置（包含kgraph子配置）
   - `MultiDialogueRagConfig`: 多轮对话RAG配置
   - `AppConfig`: 应用主配置（聚合所有子模块配置）
 
@@ -96,13 +93,16 @@ milvus_config = loader.milvus
 embedding_config = loader.embedding
 ```
 
-### 加载搜索配置
+### 使用网络搜索功能
 
 ```python
-from agent.search.search_loader import SearchConfigLoader
+from search.web_search import create_web_search_tool
 
-loader = SearchConfigLoader()
-search_agent_config = loader.search_agent
+# 创建网络搜索工具
+network_search_tool, network_search_llm, network_tool_node = create_web_search_tool(
+    search_cnt=10,          # 网络搜索返回结果数量
+    power_model=llm         # LLM实例
+)
 ```
 
 ### 加载全局RAG配置
@@ -116,9 +116,10 @@ app_config = loader.config  # AppConfig对象
 
 ## 配置依赖关系
 
-- `rag_config.py` 依赖于各子模块的配置类
+- `rag_config.py` 依赖于部分子模块的配置类（知识图谱等）
 - 各子模块配置相互独立，不依赖其他模块
-- 全局RAG配置聚合所有子模块配置
+- 全局RAG配置聚合相关子模块配置
+- 搜索模块不使用配置文件，通过函数参数控制行为
 
 ## 环境变量支持
 
