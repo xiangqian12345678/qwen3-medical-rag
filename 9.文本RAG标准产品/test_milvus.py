@@ -34,7 +34,7 @@ class MilvusSearchTester:
 
     def __init__(self):
         """初始化测试环境"""
-        self.config = None
+        self.embedConfigLoader = None
         self.llm = None
         self.db_search_tool = None
         self.db_search_llm = None
@@ -48,10 +48,10 @@ class MilvusSearchTester:
 
         try:
             # 加载配置
-            self.config = EmbedConfigLoader()
+            self.embedConfigLoader = EmbedConfigLoader()
             logger.info(f"✓ 配置加载成功")
-            logger.info(f"  Milvus URI: {self.config.milvus.uri}")
-            logger.info(f"  集合名称: {self.config.milvus.collection_name}")
+            logger.info(f"  Milvus URI: {self.embedConfigLoader.milvus.uri}")
+            logger.info(f"  集合名称: {self.embedConfigLoader.milvus.collection_name}")
 
             # 初始化LLM
             rag_config = RAGConfigLoader().config
@@ -61,7 +61,7 @@ class MilvusSearchTester:
 
             # 创建数据库检索工具
             self.db_search_tool, self.db_search_llm, self.db_tool_node = create_db_search_tool(
-                config=self.config,
+                embedConfigLoader=self.embedConfigLoader,
                 power_model=self.llm
             )
             logger.info("✓ 数据库检索工具创建成功")

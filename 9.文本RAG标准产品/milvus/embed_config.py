@@ -118,6 +118,7 @@ class FusionSpec(BaseModel):
     weights: Optional[Dict[str, float]] = Field(default=None, description="加权融合的权重")
 
 
+# TODO 为什么没有用 collection_name
 class SingleSearchRequest(BaseModel):
     """单个检索请求"""
     anns_field: AnnsField = Field(description="向量检索字段")

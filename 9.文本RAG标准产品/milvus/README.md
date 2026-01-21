@@ -190,7 +190,7 @@ llm = ChatOpenAI(
 
 # 创建数据库检索工具
 db_search_tool, db_search_llm, db_tool_node = create_db_search_tool(
-    config=config,
+    embedConfigLoader=config,
     power_model=llm
 )
 

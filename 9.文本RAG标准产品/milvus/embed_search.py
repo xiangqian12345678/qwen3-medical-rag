@@ -1,8 +1,6 @@
 """Milvus 向量检索模块"""
 import json
 import logging
-import sys
-from pathlib import Path
 from typing import List
 from typing import TYPE_CHECKING
 
@@ -12,10 +10,11 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from .embed_searcher import get_kb
+from milvus.embed_loader import EmbedConfigLoader
 from .embed_config import SingleSearchRequest
-from .embed_utils import json_to_list_document, _should_call_tool
+from .embed_searcher import get_kb
 from .embed_templates import get_prompt_template
+from .embed_utils import json_to_list_document, _should_call_tool
 
 # 当两个模块相互导入时（A 导入 B，B 也导入 A），会产生循环导入错误。使用 TYPE_CHECKING 可以避免运行时的循环导入
 if TYPE_CHECKING:
@@ -116,20 +115,23 @@ def llm_db_search(
 
 
 def create_db_search_tool(
-        config,
+        embedConfigLoader: EmbedConfigLoader,
         power_model: BaseChatModel
 ):
     """
     创建数据库检索工具节点
 
     Args:
-        config: 应用配置（EmbedConfigLoader实例）
+        embedConfigLoader: 应用配置
         power_model: LLM实例
 
     Returns:
         tuple: (db_search_tool, db_search_llm, db_tool_node)
     """
-    fixed_collection_name = config.milvus.collection_name
+
+    # 向量检索对应的collection_name
+    fixed_collection_name = embedConfigLoader.milvus.collection_name or embedConfigLoader.default_search.collection_name
+
     # 构建默认的多路检索请求
     default_requests = [
         SingleSearchRequest(
@@ -161,16 +163,16 @@ def create_db_search_tool(
         """
         try:
             from .embed_config import SearchRequest, FusionSpec
-            kb = get_kb(config.as_dict)
+            kb = get_kb(embedConfigLoader.as_dict)
 
             search_req = SearchRequest(
                 query=query,
                 collection_name=fixed_collection_name,
                 requests=default_requests,
-                fuse=FusionSpec(method=config.fusion.method, k=config.fusion.k),
-                output_fields=config.default_search.output_fields,
-                top_k=config.default_search.top_k,
-                limit=config.default_search.limit
+                fuse=FusionSpec(method=embedConfigLoader.fusion.method, k=embedConfigLoader.fusion.k),
+                output_fields=embedConfigLoader.default_search.output_fields,
+                top_k=embedConfigLoader.default_search.top_k,
+                limit=embedConfigLoader.default_search.limit
             )
 
             results = kb.search(req=search_req)
@@ -203,7 +205,6 @@ def create_db_search_tool(
 def main():
     """主函数：测试 embed_search 模块功能"""
     import sys
-    from pathlib import Path
 
     # 配置日志
     logging.basicConfig(
@@ -238,7 +239,7 @@ def main():
         # 创建数据库检索工具
         logger.info("创建数据库检索工具...")
         db_search_tool, db_search_llm, db_tool_node = create_db_search_tool(
-            config=config,
+            embedConfigLoader=config,
             power_model=llm
         )
         logger.info("数据库检索工具创建成功")

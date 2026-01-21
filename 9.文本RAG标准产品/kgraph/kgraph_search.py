@@ -13,11 +13,11 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
+from kgraph import Neo4jConfig
 from .kg_templates import get_prompt_template
 from .kg_utils import json_to_list_document, _should_call_tool
 from .kgraph_searcher import GraphSearcher
 from .neo4j_connection import Neo4jConnection
-
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
@@ -105,14 +105,14 @@ def llm_kgraph_search(
 
 
 def create_kgraph_search_tool(
-        config,
+        neo4jConfig: Neo4jConfig,
         power_model: BaseChatModel
 ):
     """
     创建知识图谱检索工具节点
 
     Args:
-        config: 应用配置
+        neo4jConfig: 应用配置
         power_model: LLM实例
 
     Returns:
@@ -122,7 +122,7 @@ def create_kgraph_search_tool(
     cnt = 10  # 默认检索10条结果
 
     # 创建Neo4j连接
-    neo4j_conn = Neo4jConnection(config)
+    neo4j_conn = Neo4jConnection(neo4jConfig)
     connected = neo4j_conn.connect()
 
     if not connected:
@@ -132,10 +132,10 @@ def create_kgraph_search_tool(
     # 创建图谱检索器（传入嵌入配置以支持向量检索）
     # 使用 text_dense 配置作为嵌入模型
     embedding_config = {
-        "provider": config.get("embedding.provider", "ollama"),
-        "model": config.get("embedding.model", "nomic-embed-text"),
-        "api_key": config.get("embedding.api_key", None),
-        "base_url": config.get("embedding.base_url", "http://localhost:11434/v1")
+        "provider": neo4jConfig.get("embedding.provider", "ollama"),
+        "model": neo4jConfig.get("embedding.model", "nomic-embed-text"),
+        "api_key": neo4jConfig.get("embedding.api_key", None),
+        "base_url": neo4jConfig.get("embedding.base_url", "http://localhost:11434/v1")
     }
     graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
 

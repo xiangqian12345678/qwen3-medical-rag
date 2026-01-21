@@ -55,11 +55,11 @@ class RAGConfigLoader:
         raw = self._replace_env_vars(raw)
 
         self._dict = raw
-        self._app_config = RAGConfig(**raw)
+        self._rag_config = RAGConfig(**raw)
 
-        self.llm = self._app_config.llm
-        self.agent = self._app_config.agent
-        self.multi_dialogue_rag = self._app_config.multi_dialogue_rag
+        self.llm = self._rag_config.llm
+        self.agent = self._rag_config.agent
+        self.multi_dialogue_rag = self._rag_config.multi_dialogue_rag
 
 
     def _replace_env_vars(self, data: Any) -> Any:
@@ -79,12 +79,12 @@ class RAGConfigLoader:
     @property
     def config(self) -> RAGConfig:
         """获取当前配置的 Pydantic 模型实例"""
-        return self._app_config
+        return self._rag_config
 
     @property
     def as_dict(self) -> dict:
         """返回当前配置的 dict 形式（深拷贝）"""
-        return self._app_config.model_dump()
+        return self._rag_config.model_dump()
 
     def change(
             self,
@@ -102,12 +102,12 @@ class RAGConfigLoader:
         new_config = RAGConfig(**merged)
 
         self._dict = merged
-        self._app_config = new_config
+        self._rag_config = new_config
 
         if save:
             self._save_yaml(save_path if save_path else self.config_path)
 
-        return self._app_config
+        return self._rag_config
 
     def _expand_dot_paths(self, flat: dict) -> dict:
         """将点路径形式的字典展开为嵌套字典"""
