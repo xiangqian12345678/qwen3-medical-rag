@@ -8,7 +8,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from templates import get_prompt_template
-from utils import format_document_str, del_think
+from enhance.utils import format_document_str, del_think
 
 if TYPE_CHECKING:
     from typing_extensions import TypedDict

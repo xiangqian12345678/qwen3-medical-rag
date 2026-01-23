@@ -10,7 +10,7 @@ from recall.kgraph.kg_loader import KGraphConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
 from multi_dialogue_agent import MultiDialogueAgent
 from rag_loader import RAGConfigLoader
-from utils import create_llm_client
+from enhance.utils import create_llm_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

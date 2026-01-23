@@ -1,0 +1,297 @@
+"""多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
+import logging
+from typing import List
+
+from langchain.output_parsers import OutputFixingParser
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnableLambda
+from pydantic import BaseModel, Field
+from enhance.agent_state import MedicalAgentState
+
+from enhance_templates import get_prompt_template
+from enhance.utils import strip_think_get_tokens
+
+logger = logging.getLogger(__name__)
+
+
+# 1.生成多个问题
+class MultiQueries(BaseModel):
+    """LLM 根据已有query生成多个表达方式不通的query，但意义相同"""
+    queries: List[str] = Field(
+        default_factory=list,
+        description="语义相同的多个查询query"
+    )
+
+
+def generate_multi_queries(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+    # 创建解析器（将 LLM 输出解析为 MultiQueries 结构化对象）
+    parser = PydanticOutputParser(pydantic_object=MultiQueries)
+    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
+
+    # 构建对话提示模板
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            get_prompt_template("multi_query")["system"].format(
+                format_instructions=parser.get_format_instructions()
+                .replace("{", "{{")
+                .replace("}", "}}"),
+            ),
+        ),
+        # 插入主对话历史（不含追问过程的完整对话）
+        MessagesPlaceholder(variable_name="dialogue_messages"),
+        # 用户消息：背景信息和当前问题
+        ("user", get_prompt_template("multi_query")["user"]),
+    ])
+
+    # 获取当前追问轮次的历史消息
+    curr_ask_history = [] if state["curr_ask_num"] == 0 else state["asking_messages"][-1]
+
+    #  构建执行链并调用 LLM
+    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
+        "background_info": state["background_info"],
+        "question": state["curr_input"],
+        "asking_history": curr_ask_history,
+    })
+
+    #  解析 LLM 输出
+    if not ai["msg"] or not ai["msg"].strip():
+        logger.warning(f"LLM 返回空结果，使用默认值: need_split=False, sub_query=[], rewrite_query=原始问题")
+        multiQueries = MultiQueries(queries=[])
+    else:
+        try:
+            multiQueries: MultiQueries = fixing.parse(ai["msg"])
+        except Exception as e:
+            logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
+            multiQueries = MultiQueries(queries=[])
+
+    # 保存查询规划结果
+    state["multi_query"] = multiQueries
+    state["performance"].append(("multi_query", ai))
+    return state
+
+
+# 2.生成子问题
+class SubQueries(BaseModel):
+    """LLM 用于判断是否需要拆分多个子查询的结构"""
+    need_split: bool = Field(
+        default=False,
+        description="是否需要拆分为多个独立子查询"
+    )
+
+    sub_queries: List[str] = Field(
+        default_factory=list,
+        description="子查询列表（最多 3 个，相互独立）"
+    )
+
+
+def generate_sub_queries(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+    """
+        判断是否需要拆分多个子查询进行检索
+
+        功能说明：
+        1. 根据用户问题和背景信息，判断是否需要将问题拆分为多个子查询
+        2. 如果需要拆分，生成最多 3 个相互独立的子查询
+        3. 如果不需要拆分，生成一个检索友好的改写查询
+        4. 将结果写入 state["sub_query"]
+    """
+    # ========================================================
+    # 步骤 1: 创建解析器（将 LLM 输出解析为 SplitQuery 结构化对象）
+    # ========================================================
+    parser = PydanticOutputParser(pydantic_object=SubQueries)
+    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
+
+    # ========================================================
+    # 步骤 2: 构建多轮对话摘要
+    # ========================================================
+    # 将历史对话摘要列表拼接为字符串，用于上下文理解
+    # 示例: multi_summary = ["用户询问头痛问题", "用户提到持续三天且有低烧"]
+    #       multi_summary_text = "用户询问头痛问题\n用户提到持续三天且有低烧"
+    multi_summary_text = "\n".join(state.get("multi_summary", [])) if state.get("multi_summary") else ""
+
+    # ========================================================
+    # 步骤 3: 构建 Prompt 模板
+    # ========================================================
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            # 格式化系统提示，包含:
+            # 1) format_instructions: SplitQuery 的 JSON schema（转义大括号避免 .format() 冲突）
+            # 2) summary: 历史对话摘要，帮助 LLM 理解上下文
+            get_prompt_template("split_query")["system"].format(
+                format_instructions=parser.get_format_instructions()
+                .replace("{", "{{")
+                .replace("}", "}}"),
+                summary=multi_summary_text,
+            ),
+        ),
+        # 插入主对话历史（不含追问过程的完整对话）
+        MessagesPlaceholder(variable_name="dialogue_messages"),
+        # 用户消息：背景信息和当前问题
+        ("user", get_prompt_template("split_query")["user"]),
+    ])
+
+    # ========================================================
+    # 步骤 4: 构建执行链并调用 LLM
+    # ========================================================
+    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
+        "background_info": state["background_info"],
+        "question": state["asking_messages"][-1][0].content,
+        "dialogue_messages": state["dialogue_messages"],
+    })
+
+    # ========================================================
+    # 步骤 5: 解析 LLM 输出
+    # ========================================================
+    # 处理 LLM 返回空结果或解析失败的情况
+    if not ai["msg"] or not ai["msg"].strip():
+        logger.warning(f"LLM 返回空结果，使用默认值: need_split=False, sub_query=[], rewrite_query=原始问题")
+        subQueries = SubQueries(need_split=False, sub_queries=[])
+    else:
+        try:
+            subQueries: SubQueries = fixing.parse(ai["msg"])
+        except Exception as e:
+            logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
+            # 解析失败时使用默认值
+            subQueries = SubQueries(need_split=False, sub_queries=[])
+
+    # ========================================================
+    # 步骤 6: 限制子查询数量并更新状态
+    # ========================================================
+    subQueries.sub_queries = subQueries.sub_queries[:3]
+
+    # 保存查询规划结果
+    state["sub_query"] = subQueries
+    state["performance"].append(("split_query", ai))
+    return state
+
+# 3.上位问题优化
+class SuperordinateQuery(BaseModel):
+    """LLM 用于生成上位问题的结构"""
+    superordinate_query: str = Field(
+        default="",
+        description="上位问题"
+    )
+
+def generate_superordinate_query(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+    """
+        生成上位问题
+    """
+    # ========================================================
+    # 步骤 1: 创建解析器（将 LLM 输出解析为 SuperordinateQuery 结构化对象）
+    # ========================================================
+    parser = PydanticOutputParser(pydantic_object=SuperordinateQuery)
+    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
+
+    # ========================================================
+    # 步骤 2: 构建 Prompt 模板
+    # ========================================================
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            # 格式化系统提示，包含:
+            # 1) format_instructions: SuperordinateQuery 的 JSON schema（转义大括号避免 .format() 冲突）
+            get_prompt_template("superordinate_query")["system"].format(
+                format_instructions=parser.get_format_instructions()
+                .replace("{", "{{")
+                .replace("}", "}}"),
+            ),
+        ),
+        # 插入主对话历史（不含追问过程的完整对话）
+        MessagesPlaceholder(variable_name="dialogue_messages"),
+        # 用户消息：背景信息和当前问题
+        ("user", get_prompt_template("superordinate_query")["user"]),
+    ])
+
+    # ========================================================
+    # 步骤 3: 构建执行链并调用 LLM
+    # ========================================================
+    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
+        "background_info": state["background_info"],
+        "question": state["curr_input"],
+        "dialogue_messages": state["dialogue_messages"],
+    })
+
+    # ========================================================
+    # 步骤 4: 解析 LLM 输出
+    # ========================================================
+    if not ai["msg"] or not ai["msg"].strip():
+        logger.warning(f"LLM 返回空结果，使用默认值: superordinate_query=原始问题")
+        superordinate_query = SuperordinateQuery(superordinate_query=state["curr_input"])
+    else:
+        try:
+            superordinate_query: SuperordinateQuery = fixing.parse(ai["msg"])
+        except Exception as e:
+            logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
+            superordinate_query = SuperordinateQuery(superordinate_query=state["curr_input"])
+
+    # ========================================================
+    # 步骤 5: 更新状态
+    # ========================================================
+    state["superordinate_query"] = superordinate_query
+    state["performance"].append(("superordinate_query", ai))
+    return state
+
+# 4.假设性答案
+class HypotheticalAnswer(BaseModel):
+    """LLM 用于生成假设性答案的结构"""
+    hypothetical_answer: str = Field(
+        default="",
+        description="假设性文档"
+    )
+
+def generate_hypothetical_answer(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+    """
+        生成假设性答案
+    """
+    # ========================================================
+    # 步骤 1: 创建解析器（将 LLM 输出解析为 HypotheticalAnswer 结构化对象）
+    # ========================================================
+    parser = PydanticOutputParser(pydantic_object=HypotheticalAnswer)
+    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
+
+    # ========================================================
+    # 步骤 2: 构建 Prompt 模板
+    # ========================================================
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            # 格式化系统提示，包含:
+            # 1) format_instructions: HypotheticalAnswer 的 JSON schema（转义大括号避免 .format() 冲突）
+            get_prompt_template("hypothetical_answer")["system"].format(
+                format_instructions=parser.get_format_instructions()
+                .replace("{", "{{")
+                .replace("}", "}}"),
+            ),
+        ),
+        # 插入主对话历史（不含追问过程的完整对话）
+        MessagesPlaceholder(variable_name="dialogue_messages"),
+        # 用户消息：背景信息和当前问题
+        ("user", get_prompt_template("hypothetical_answer")["user"]),
+    ])
+
+    # 步骤 3: 构建执行链并调用 LLM
+    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
+        "background_info": state["background_info"],
+        "question": state["curr_input"],
+        "dialogue_messages": state["dialogue_messages"],
+    })
+
+    # 步骤 4: 解析 LLM 输出
+    if not ai["msg"] or not ai["msg"].strip():
+        logger.warning(f"LLM 返回空结果，使用默认值: hypothetical_answer=原始问题")
+        hypothetical_answer = HypotheticalAnswer(hypothetical_answer=state["curr_input"])
+    else:
+        try:
+            hypothetical_answer: HypotheticalAnswer = fixing.parse(ai["msg"])
+        except Exception as e:
+            logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
+            hypothetical_answer = HypotheticalAnswer(hypothetical_answer=state["curr_input"])
+
+    # 步骤 5: 更新状态
+    state["hypothetical_answer"] = hypothetical_answer
+    state["performance"].append(("hypothetical_answer", ai))
+    return state
+

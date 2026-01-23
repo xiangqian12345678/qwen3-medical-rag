@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from rag_loader import RAGConfigLoader
-from utils import create_llm_client
+from enhance.utils import create_llm_client
 
 # 添加项目路径
 project_dir = Path(__file__).parent

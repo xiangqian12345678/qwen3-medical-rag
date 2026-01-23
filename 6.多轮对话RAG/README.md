@@ -361,7 +361,8 @@ print(result["answer"])
 ### 6.1 自定义Token估算函数
 
 ```python
-from utils import register_estimate_function
+from enhance.utils import register_estimate_function
+
 
 @register_estimate_function("my_method")
 def my_estimate_function(text: str) -> int:

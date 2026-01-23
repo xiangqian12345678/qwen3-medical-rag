@@ -9,7 +9,8 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 """
-文档分块检索后，与查询最相关的信息可能隐藏在一个包含大量不相关文本的文档中，输入给LLM，可能会导致更昂贵的LLM调用和较差的响应（噪声）。
+文档分块检索后，与查询最相关的信息可能隐藏在一个包含大量不相关文本的文档中，输入给LLM，
+可能会导致更昂贵的LLM调用和较差的响应（噪声）。
 """
 
 

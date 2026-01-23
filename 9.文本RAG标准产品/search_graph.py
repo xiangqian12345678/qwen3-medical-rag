@@ -26,7 +26,7 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from utils import create_llm_client
+from enhance.utils import create_llm_client
 
 # 尝试相对导入（当作为包导入时）
 from recall.milvus import llm_db_search, create_db_search_tool
@@ -279,7 +279,20 @@ class SearchGraph:
 
         graph = StateGraph(SearchMessagesState)
 
-        # 添加数据库检索节点
+        # 1 添加节点
+        # 1.1 召回强化
+        # 1.1.1 多路召回
+
+        # 1.1.2 问题分析
+
+        # 1.1.3 上位优化
+
+        # 1.1.4 假设性文档
+
+
+
+        # 1.2 召回节点
+        # 1.2.1 添加数据库检索节点
         db_search_node_func = partial(
             llm_db_search,
             llm=self.db_search_llm,
@@ -288,7 +301,7 @@ class SearchGraph:
         )
         graph.add_node("db_search", db_search_node_func)
 
-        # 只在启用网络搜索且工具创建成功时添加web_search节点
+        # 1.2.2 添加web_search节点
         if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
             network_search_node_func = partial(
                 llm_network_search,
@@ -299,7 +312,7 @@ class SearchGraph:
             )
             graph.add_node("web_search", network_search_node_func)
 
-        # 添加知识图谱搜索节点（如果工具创建成功）
+        # 1.2.3 添加知识图谱搜索节点
         if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
             kgraph_search_node_func = partial(
                 llm_kgraph_search,
@@ -309,7 +322,23 @@ class SearchGraph:
             )
             graph.add_node("kgraph_search", kgraph_search_node_func)
 
-        # 添加RAG节点
+        # 1.3 过滤-主要针对向量检索结果
+        # 1.3.1 压缩过滤-低相关文档去除
+
+        # 1.3.2 压缩过滤-低相关内容去除
+
+        # 1.3.3 冗余过滤-去除重复内容
+
+        # 1.4 排序-主要针对向量检索结果
+        # 1.4.1 重排序-RRF在向量召回过滤中已经做了
+        # 1.4.2 重排序-rerank 对向量召回结果进行
+
+        # 1.4.3 重排序-首位更重要
+
+
+
+
+        # 1.2 添加RAG节点
         rag_node_func = partial(
             rag_node,
             llm=self.llm,
@@ -317,11 +346,11 @@ class SearchGraph:
         )
         graph.add_node("rag", rag_node_func)
 
-        # 添加结束节点
+        # 1.3 添加结束节点
         graph.add_node("finish_success", finish_success)
         graph.add_node("finish_fail", finish_fail)
 
-        # 构建图结构
+        # 1.4 添加判断节点
         judge_node_func = partial(
             judge_node,
             llm=self.llm,
@@ -330,16 +359,25 @@ class SearchGraph:
         graph.add_node("judge", judge_node_func)
 
         # 构建检索流程：db_search -> web_search(可选) -> kgraph_search(可选) -> rag
+        # 2.设置边
+        # 2.1 召回流程
+        # 2.1.1 向量召回为入口节点
         graph.set_entry_point("db_search")
-
         last_node = "db_search"
+
+        # 2.1.2 网络召回
         if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
+        # 2.1.3 知识图谱召回
         if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
             graph.add_edge(last_node, "kgraph_search")
             last_node = "kgraph_search"
+
+        # 2.2 生成回答
+
+
 
         graph.add_edge(last_node, "rag")
 
