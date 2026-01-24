@@ -279,20 +279,6 @@ class SearchGraph:
 
         graph = StateGraph(SearchMessagesState)
 
-        # 1 添加节点
-        # 1.1 召回强化
-        # 1.1.1 多路召回
-
-        # 1.1.2 问题分析
-
-        # 1.1.3 上位优化
-
-        # 1.1.4 假设性文档
-
-
-
-        # 1.2 召回节点
-        # 1.2.1 添加数据库检索节点
         db_search_node_func = partial(
             llm_db_search,
             llm=self.db_search_llm,
@@ -301,7 +287,7 @@ class SearchGraph:
         )
         graph.add_node("db_search", db_search_node_func)
 
-        # 1.2.2 添加web_search节点
+        # 添加web_search节点
         if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
             network_search_node_func = partial(
                 llm_network_search,
@@ -312,7 +298,7 @@ class SearchGraph:
             )
             graph.add_node("web_search", network_search_node_func)
 
-        # 1.2.3 添加知识图谱搜索节点
+        # 添加知识图谱搜索节点
         if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
             kgraph_search_node_func = partial(
                 llm_kgraph_search,
@@ -322,23 +308,7 @@ class SearchGraph:
             )
             graph.add_node("kgraph_search", kgraph_search_node_func)
 
-        # 1.3 过滤-主要针对向量检索结果
-        # 1.3.1 压缩过滤-低相关文档去除
-
-        # 1.3.2 压缩过滤-低相关内容去除
-
-        # 1.3.3 冗余过滤-去除重复内容
-
-        # 1.4 排序-主要针对向量检索结果
-        # 1.4.1 重排序-RRF在向量召回过滤中已经做了
-        # 1.4.2 重排序-rerank 对向量召回结果进行
-
-        # 1.4.3 重排序-首位更重要
-
-
-
-
-        # 1.2 添加RAG节点
+        # 添加RAG节点
         rag_node_func = partial(
             rag_node,
             llm=self.llm,
@@ -375,12 +345,7 @@ class SearchGraph:
             graph.add_edge(last_node, "kgraph_search")
             last_node = "kgraph_search"
 
-        # 2.2 生成回答
-
-
-
         graph.add_edge(last_node, "rag")
-
         graph.add_edge("rag", "judge")
         graph.add_conditional_edges(
             "judge",

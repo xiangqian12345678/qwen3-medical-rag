@@ -103,12 +103,13 @@ class EmbedConfig(BaseModel):
 # =============================================================================
 # 检索请求模型
 # =============================================================================
-AnnsField = Literal["chunk_dense", "parent_chunk_dense", "summary_dense", "questions_dense", "chunk_sparse"]
-
-OutputFields = Literal[
-    "pk", "origin_pk", "vector_id", "chunk", "parent_chunk", "summary", "questions",
-    "document", "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
-]
+# 下面两个类型没有用，将来可以删除
+# AnnsField = Literal["chunk_dense", "parent_chunk_dense", "summary_dense", "questions_dense", "chunk_sparse"]
+#
+# OutputFields = Literal[
+#     "pk", "origin_pk", "vector_id", "chunk", "parent_chunk", "summary", "questions",
+#     "document", "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
+# ]
 
 
 class FusionSpec(BaseModel):

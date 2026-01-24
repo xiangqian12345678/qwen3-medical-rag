@@ -110,6 +110,8 @@ class EmbedSearcher:
         documents = []
         for hit in results[0]:
             metadata = {k: v for k, v in hit.entity.items() if k != "chunk" and k != "summary"}
+            metadata.update({"score": hit.score})
+            metadata.update({"query": req.query}) # 重排序用
             content = hit.entity.get("chunk") or hit.entity.get("summary") or ""
             doc = Document(page_content=content, metadata=metadata)
             documents.append(doc)

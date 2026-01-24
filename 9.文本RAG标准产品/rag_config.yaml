@@ -4,13 +4,45 @@ agent:
   max_attempts: 2
   console_debug: false
   max_ask_num: 5
+
   # 向量检索配置，无需配置，必须采用
   # 网络搜索配置
   network_search_enabled: false
   network_search_cnt: 10
+
   # 知识图谱搜索配置
   kgraph_search_enabled: false
   kgraph_search_cnt: 10
+
+  # query强化
+  # 1.意图识别(预留)  2.query优化  3.生成补充或追问问题，以完善用户输入
+  query_intent_enabled: false
+  query_rewrite_enabled: true
+  query_refine_enabled: true
+
+  # 召回强化
+  # 1.生成多个问题  2.生成子问题 3.上位问题生成 4.假设性答案生成
+  generate_multi_queries_enabled: true
+  generate_sub_queries_enabled: true
+  generate_superordinate_query_enabled: true
+  generate_hypothetical_answer_enabled: true
+
+  # 过滤
+  # 1.压缩过滤-过滤低相关内容
+  # 2.压缩过滤-基于大模型过滤低相关文档
+  # 3.压缩-基于嵌入模型过滤低相关文档(2,3最多只能启动一个)
+  # 4.冗余过滤-基于向量引擎
+  filter_low_correction_content_enabled: true
+  filter_low_correction_doc_llm_enabled: false
+  filter_low_correction_doc_embeddings_enabled: true
+  low_correction_threshold: 0.65
+  filter_redundant_doc_embeddings_enabled: true
+  redundant_threshold: 0.95
+
+  # 排序
+  sort_docs_cross_encoder_enabled: true
+  sort_docs_by_loss_of_location_enabled: true
+
 
 llm:
   provider: dashscope
@@ -31,3 +63,5 @@ multi_dialogue_rag:
   cache_time: 60
   summary_max_length: 500
   summary_max_cache_count: 3
+
+

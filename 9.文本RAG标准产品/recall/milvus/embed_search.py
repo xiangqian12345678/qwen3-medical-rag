@@ -119,14 +119,14 @@ def llm_db_search(
 
 
 def create_db_search_tool(
-        embedConfigLoader: EmbedConfigLoader,
+        embed_config_loader: EmbedConfigLoader,
         power_model: BaseChatModel
 ):
     """
     创建数据库检索工具节点
 
     Args:
-        embedConfigLoader: 应用配置
+        embed_config_loader: 应用配置
         power_model: LLM实例
 
     Returns:
@@ -134,7 +134,7 @@ def create_db_search_tool(
     """
 
     # 向量检索对应的collection_name
-    fixed_collection_name = embedConfigLoader.milvus.collection_name or embedConfigLoader.default_search.collection_name
+    fixed_collection_name = embed_config_loader.milvus.collection_name or embed_config_loader.default_search.collection_name
 
     # 构建默认的多路检索请求
     default_requests = [
@@ -167,16 +167,16 @@ def create_db_search_tool(
         """
         try:
             from .embed_config import SearchRequest, FusionSpec
-            kb = get_kb(embedConfigLoader.as_dict)
+            kb = get_kb(embed_config_loader.as_dict)
 
             search_req = SearchRequest(
                 query=query,
                 collection_name=fixed_collection_name,
                 requests=default_requests,
-                fuse=FusionSpec(method=embedConfigLoader.fusion.method, k=embedConfigLoader.fusion.k),
-                output_fields=embedConfigLoader.default_search.output_fields,
-                top_k=embedConfigLoader.default_search.top_k,
-                limit=embedConfigLoader.default_search.limit
+                fuse=FusionSpec(method=embed_config_loader.fusion.method, k=embed_config_loader.fusion.k),
+                output_fields=embed_config_loader.default_search.output_fields,
+                top_k=embed_config_loader.default_search.top_k,
+                limit=embed_config_loader.default_search.limit
             )
 
             results = kb.search(req=search_req)
@@ -243,7 +243,7 @@ def main():
         # 创建数据库检索工具
         logger.info("创建数据库检索工具...")
         db_search_tool, db_search_llm, db_tool_node = create_db_search_tool(
-            embedConfigLoader=config,
+            embed_config_loader=config,
             power_model=llm
         )
         logger.info("数据库检索工具创建成功")

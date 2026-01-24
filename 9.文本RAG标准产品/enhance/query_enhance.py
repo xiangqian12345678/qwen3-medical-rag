@@ -12,7 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
 
-from enhance.agent_state import MedicalAgentState
+from enhance.agent_state import AgentState
 from enhance_templates import get_prompt_template
 from enhance.utils import strip_think_get_tokens
 
@@ -20,7 +20,23 @@ logger = logging.getLogger(__name__)
 
 
 # 查询增强
-# 1.意图识别
+# 1.意图识别 这部分还没有想好
+class Intent(BaseModel):
+    """LLM 用于判断是否需要拆分多个子查询的结构"""
+    intent: str = Field(
+        default="",
+        description="意图"
+    )
+
+
+def intent_recognition(state: AgentState, llm: BaseChatModel) -> AgentState:
+    """
+    根据业务补充，这部分需要大量业务抽象，主要针对milvus
+    1.类别预测
+    2.实体识别
+    3.字段过滤
+    """
+    pass
 
 
 # 2.query改写
@@ -28,14 +44,15 @@ class RewriteQuery(BaseModel):
     """LLM 用于判断是否需要拆分多个子查询的结构"""
     need_rewrite: bool = Field(
         default=False,
-        description="是否需要拆分为多个独立子查询"
+        description="是否需要优化query表述"
     )
     rewrite_query: str = Field(
         default="",
-        description="不拆分时，对原始问题的检索友好改写"
+        description="对原始问题的检索友好改写"
     )
 
-def rewrite_query(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+
+def rewrite_query(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
     判断是否需要改写query，并格局需要优化query
     """
@@ -127,7 +144,7 @@ class AskMess(BaseModel):
     )
 
 
-def query_refine(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         判断是否需要向用户继续追问关键信息
 
@@ -248,7 +265,7 @@ def query_refine(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentSt
 
 
 # 4.生成摘要
-def generate_summary(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def generate_summary(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
        从多轮追问中抽取关键背景信息
        功能说明：

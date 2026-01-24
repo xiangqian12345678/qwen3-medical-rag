@@ -3,6 +3,7 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, Field
 
+
 # =============================================================================
 # LLM配置
 # =============================================================================
@@ -14,6 +15,7 @@ class LLMConfig(BaseModel):
     api_key: Optional[str] = None
     temperature: float = 0.1
     max_tokens: Optional[int] = None
+
 
 # =============================================================================
 # Agent配置
@@ -31,6 +33,29 @@ class AgentConfig(BaseModel):
     # 知识图谱配置参数
     kgraph_search_enabled: bool = False
     kgraph_search_cnt: int = 10
+
+    # Query强化
+    query_intent_enabled: bool = False
+    query_rewrite_enabled: bool = False
+    query_refine_enabled: bool = False
+
+    # 召回强化
+    generate_multi_queries_enabled: bool = True
+    generate_sub_queries_enabled: bool = True
+    generate_superordinate_query_enabled: bool = True
+    generate_hypothetical_answer_enabled: bool = True
+
+    # 过滤
+    filter_low_correction_content_enabled: bool = True
+    filter_low_correction_doc_llm_enabled: bool = True
+    filter_low_correction_doc_embeddings_enabled: bool = True
+    low_correction_threshold: float = 0.65
+    filter_redundant_doc_embeddings_enabled: bool = True
+    redundant_threshold: float = 0.95
+
+    # 排序
+    sort_docs_cross_encoder_enabled: bool = True
+    sort_docs_by_loss_of_location_enabled: bool = True
 
 
 # =============================================================================

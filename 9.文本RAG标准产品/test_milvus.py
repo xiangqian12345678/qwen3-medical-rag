@@ -60,7 +60,7 @@ class MilvusSearchTester:
 
             # 创建数据库检索工具
             self.db_search_tool, self.db_search_llm, self.db_tool_node = create_db_search_tool(
-                embedConfigLoader=self.embedConfigLoader,
+                embed_config_loader=self.embedConfigLoader,
                 power_model=self.llm
             )
             logger.info("✓ 数据库检索工具创建成功")

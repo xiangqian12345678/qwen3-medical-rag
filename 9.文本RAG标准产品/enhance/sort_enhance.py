@@ -11,7 +11,36 @@ logger = logging.getLogger(__name__)
 
 # 重排序
 # 1.重排序-基于cross-encoder的重排序
-def sort_docs_cross_encoder_with_scores(query: str, docs: List[Document], reranker: CrossEncoder) -> Tuple[
+def sort_docs_cross_encoder(docs: List[Document], reranker: CrossEncoder) -> List[Document]:
+    """
+    重排序-基于cross-encoder的重排序
+
+    Args:
+        docs: 文档列表
+        reranker: CrossEncoder模型实例
+
+    Returns:
+        Tuple[排序后的文档列表, 对应的分数列表]
+    """
+    if not docs:
+        return []
+
+    # 创建查询-文档对
+    pairs = [[doc.metadata["query"], doc.document.page_content] for doc in docs]
+
+    # 计算相关性分数
+    scores = reranker.predict(pairs)
+
+    # 按分数降序排序
+    sorted_indices = np.argsort(scores)[::-1]
+
+    # 获取排序后的文档和分数
+    sorted_docs = [docs[i] for i in sorted_indices]
+
+    return sorted_docs
+
+
+def sort_docs_cross_encoder_v2(query: str, docs: List[Document], reranker: CrossEncoder) -> Tuple[
     List[Document], List[float]]:
     """
     重排序-基于cross-encoder的重排序，返回文档和分数

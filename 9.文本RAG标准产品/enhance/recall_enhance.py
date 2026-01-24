@@ -8,7 +8,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
-from enhance.agent_state import MedicalAgentState
+from enhance.agent_state import AgentState
 
 from enhance_templates import get_prompt_template
 from enhance.utils import strip_think_get_tokens
@@ -25,7 +25,7 @@ class MultiQueries(BaseModel):
     )
 
 
-def generate_multi_queries(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 创建解析器（将 LLM 输出解析为 MultiQueries 结构化对象）
     parser = PydanticOutputParser(pydantic_object=MultiQueries)
     fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
@@ -59,18 +59,19 @@ def generate_multi_queries(state: MedicalAgentState, llm: BaseChatModel) -> Medi
     #  解析 LLM 输出
     if not ai["msg"] or not ai["msg"].strip():
         logger.warning(f"LLM 返回空结果，使用默认值: need_split=False, sub_query=[], rewrite_query=原始问题")
-        multiQueries = MultiQueries(queries=[])
+        multi_queries = MultiQueries(queries=[])
     else:
         try:
-            multiQueries: MultiQueries = fixing.parse(ai["msg"])
+            multi_queries: MultiQueries = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
-            multiQueries = MultiQueries(queries=[])
+            multi_queries = MultiQueries(queries=[])
 
     # 保存查询规划结果
-    state["multi_query"] = multiQueries
-    state["performance"].append(("multi_query", ai))
-    return state
+    new_state = state.copy()
+    new_state["multi_query"] = multi_queries
+    new_state["performance"] = state["performance"] + [("multi_query", ai)]
+    return new_state
 
 
 # 2.生成子问题
@@ -87,7 +88,7 @@ class SubQueries(BaseModel):
     )
 
 
-def generate_sub_queries(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         判断是否需要拆分多个子查询进行检索
 
@@ -148,24 +149,25 @@ def generate_sub_queries(state: MedicalAgentState, llm: BaseChatModel) -> Medica
     # 处理 LLM 返回空结果或解析失败的情况
     if not ai["msg"] or not ai["msg"].strip():
         logger.warning(f"LLM 返回空结果，使用默认值: need_split=False, sub_query=[], rewrite_query=原始问题")
-        subQueries = SubQueries(need_split=False, sub_queries=[])
+        sub_queries = SubQueries(need_split=False, sub_queries=[])
     else:
         try:
-            subQueries: SubQueries = fixing.parse(ai["msg"])
+            sub_queries: SubQueries = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
             # 解析失败时使用默认值
-            subQueries = SubQueries(need_split=False, sub_queries=[])
+            sub_queries = SubQueries(need_split=False, sub_queries=[])
 
     # ========================================================
     # 步骤 6: 限制子查询数量并更新状态
     # ========================================================
-    subQueries.sub_queries = subQueries.sub_queries[:3]
+    sub_queries.sub_queries = sub_queries.sub_queries[:3]
 
-    # 保存查询规划结果
-    state["sub_query"] = subQueries
-    state["performance"].append(("split_query", ai))
-    return state
+    new_state = state.copy()
+    new_state["sub_query"] = sub_queries
+    new_state["performance"] = state["performance"] + [("sub_query", ai)]
+    return new_state
+
 
 # 3.上位问题优化
 class SuperordinateQuery(BaseModel):
@@ -175,7 +177,7 @@ class SuperordinateQuery(BaseModel):
         description="上位问题"
     )
 
-def generate_superordinate_query(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         生成上位问题
     """
@@ -230,9 +232,10 @@ def generate_superordinate_query(state: MedicalAgentState, llm: BaseChatModel) -
     # ========================================================
     # 步骤 5: 更新状态
     # ========================================================
-    state["superordinate_query"] = superordinate_query
-    state["performance"].append(("superordinate_query", ai))
-    return state
+    new_state = state.copy()
+    new_state["superordinate_query"] = superordinate_query
+    new_state["performance"] = state["performance"] + [("superordinate_query", ai)]
+    return new_state
 
 # 4.假设性答案
 class HypotheticalAnswer(BaseModel):
@@ -242,7 +245,7 @@ class HypotheticalAnswer(BaseModel):
         description="假设性文档"
     )
 
-def generate_hypothetical_answer(state: MedicalAgentState, llm: BaseChatModel) -> MedicalAgentState:
+def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         生成假设性答案
     """
@@ -291,7 +294,7 @@ def generate_hypothetical_answer(state: MedicalAgentState, llm: BaseChatModel) -
             hypothetical_answer = HypotheticalAnswer(hypothetical_answer=state["curr_input"])
 
     # 步骤 5: 更新状态
-    state["hypothetical_answer"] = hypothetical_answer
-    state["performance"].append(("hypothetical_answer", ai))
-    return state
-
+    new_state = state.copy()
+    new_state["hypothetical_answer"] = hypothetical_answer
+    new_state["performance"] = state["performance"] + [("hypothetical_answer", ai)]
+    return new_state
