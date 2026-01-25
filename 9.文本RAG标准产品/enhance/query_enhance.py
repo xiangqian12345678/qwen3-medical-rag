@@ -41,18 +41,13 @@ def intent_recognition(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 # 2.query改写
 class RewriteQuery(BaseModel):
-    """LLM 用于判断是否需要拆分多个子查询的结构"""
-    need_rewrite: bool = Field(
-        default=False,
-        description="是否需要优化query表述"
-    )
-    rewrite_query: str = Field(
+    query: str = Field(
         default="",
         description="对原始问题的检索友好改写"
     )
 
 
-def rewrite_query(state: AgentState, llm: BaseChatModel) -> AgentState:
+def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
     判断是否需要改写query，并格局需要优化query
     """
@@ -106,8 +101,8 @@ def rewrite_query(state: AgentState, llm: BaseChatModel) -> AgentState:
     # ========================================================
     # 处理 LLM 返回空结果或解析失败的情况
     if not ai["msg"] or not ai["msg"].strip():
-        logger.warning(f"LLM 返回空结果，使用默认值: need_rewrite=False, rewrite_query=原始问题")
-        rewriteQuery = RewriteQuery(need_rewrite=False, rewrite_query=state["asking_messages"][-1][0].content)
+        logger.warning(f"LLM 返回空结果，使用默认值:  rewrite_query=原始问题")
+        rewrite_query = RewriteQuery(query=state["asking_messages"][-1][0].content)
     else:
         try:
             # 解析原理同 ask_judge 节点：
@@ -115,18 +110,18 @@ def rewrite_query(state: AgentState, llm: BaseChatModel) -> AgentState:
             # 2) LLM 根据 schema 生成结构化 JSON（如: {"need_rewrite": true, "rewrite_query": "..."}）
             # 3) OutputFixingParser 容错解析，自动修复格式错误
             # 4) 最终得到 rewriteQuery = RewriteQuery(need_rewrite=True, rewrite_query="...")
-            rewriteQuery: RewriteQuery = fixing.parse(ai["msg"])
+            rewrite_query: RewriteQuery = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
             # 解析失败时使用默认值
-            rewriteQuery = RewriteQuery(need_rewrite=False, rewrite_query=state["asking_messages"][-1][0].content)
+            rewrite_query = RewriteQuery(query=state["asking_messages"][-1][0].content)
 
     # ========================================================
     # 步骤 6: 更新状态
     # ========================================================
     # 保存查询改写结果
     # 示例结果: state["sub_query"] = RewriteQuery(need_rewrite=True, rewrite_query="头痛伴随低烧的诊断标准")
-    state["rewrite_query"] = rewriteQuery
+    state["rewrite_query"] = rewrite_query
     state["performance"].append(("rewrite_query", ai))
     return state
 

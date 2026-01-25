@@ -24,7 +24,6 @@ class MultiQueries(BaseModel):
         description="语义相同的多个查询query"
     )
 
-
 def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 创建解析器（将 LLM 输出解析为 MultiQueries 结构化对象）
     parser = PydanticOutputParser(pydantic_object=MultiQueries)
@@ -82,7 +81,7 @@ class SubQueries(BaseModel):
         description="是否需要拆分为多个独立子查询"
     )
 
-    sub_queries: List[str] = Field(
+    queries: List[str] = Field(
         default_factory=list,
         description="子查询列表（最多 3 个，相互独立）"
     )
@@ -149,19 +148,19 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 处理 LLM 返回空结果或解析失败的情况
     if not ai["msg"] or not ai["msg"].strip():
         logger.warning(f"LLM 返回空结果，使用默认值: need_split=False, sub_query=[], rewrite_query=原始问题")
-        sub_queries = SubQueries(need_split=False, sub_queries=[])
+        sub_queries = SubQueries(need_split=False, queries=[])
     else:
         try:
             sub_queries: SubQueries = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
             # 解析失败时使用默认值
-            sub_queries = SubQueries(need_split=False, sub_queries=[])
+            sub_queries = SubQueries(need_split=False, queries=[])
 
     # ========================================================
     # 步骤 6: 限制子查询数量并更新状态
     # ========================================================
-    sub_queries.sub_queries = sub_queries.sub_queries[:3]
+    sub_queries.queries = sub_queries.queries[:3]
 
     new_state = state.copy()
     new_state["sub_query"] = sub_queries
