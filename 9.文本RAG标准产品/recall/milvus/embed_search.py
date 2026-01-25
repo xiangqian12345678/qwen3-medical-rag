@@ -2,7 +2,7 @@
 import json
 import logging
 from typing import List
-from typing import TYPE_CHECKING
+from typing_extensions import TypedDict
 
 from langchain.tools import tool
 from langchain_core.documents import Document
@@ -10,36 +10,28 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from recall.milvus.embed_loader import EmbedConfigLoader
+from .embed_loader import EmbedConfigLoader
 from .embed_config import SingleSearchRequest
 from .embed_searcher import get_kb
 from .embed_templates import get_prompt_template
 from .embed_utils import json_to_list_document, _should_call_tool
 
-# 当两个模块相互导入时（A 导入 B，B 也导入 A），会产生循环导入错误。使用 TYPE_CHECKING 可以避免运行时的循环导入
-if TYPE_CHECKING:
-    from typing_extensions import TypedDict
 
+class DBRecallState(TypedDict, total=False):
+    query: str
+    other_messages: List
+    docs: List[Document]
 
-    class SearchMessagesState(TypedDict, total=False):
-        query: str
-        main_messages: List
-        other_messages: List
-        docs: List[Document]
-        answer: str
-        retry: int
-        final: str
-        judge_result: str
 
 logger = logging.getLogger(__name__)
 
 
 def llm_db_search(
-        state: "SearchMessagesState",
+        state: "DBRecallState",
         llm: BaseChatModel,
         db_tool_node: ToolNode,
         show_debug: bool
-) -> "SearchMessagesState":
+) -> "DBRecallState":
     """
     数据库检索节点
 
@@ -136,27 +128,68 @@ def create_db_search_tool(
     # 向量检索对应的collection_name
     fixed_collection_name = embed_config_loader.milvus.collection_name or embed_config_loader.default_search.collection_name
 
-    # 构建默认的多路检索请求
-    default_requests = [
-        SingleSearchRequest(
-            anns_field="chunk_dense",
-            limit=50,
-            search_params={"ef": 64},
-            metric_type="COSINE"
-        ),
-        SingleSearchRequest(
-            anns_field="parent_chunk_dense",
-            limit=50,
-            search_params={"ef": 64},
-            metric_type="COSINE"
-        ),
-        SingleSearchRequest(
-            anns_field="questions_dense",
-            limit=50,
-            search_params={"ef": 64},
-            metric_type="COSINE"
-        )
-    ]
+    def _create_requests(embed_config_loader: EmbedConfigLoader) -> List[SingleSearchRequest]:
+        """
+        根据配置动态生成多路检索请求
+
+        Args:
+            embed_config_loader: 配置加载器
+
+        Returns:
+            List[SingleSearchRequest]: 检索请求列表
+        """
+        requests = []
+
+        # 遍历稠密向量字段配置，生成对应的检索请求
+        for field_name, field_config in embed_config_loader.dense_fields.items():
+            if field_config.embed:  # 只有启用了嵌入的字段才生成检索请求
+                request = SingleSearchRequest(
+                    anns_field=field_name,
+                    limit=50,
+                    search_params=field_config.search_params or {"ef": 64},
+                    metric_type=field_config.metric_type
+                )
+                requests.append(request)
+
+        # 遍历稀疏向量字段配置，生成对应的检索请求
+        for field_name, field_config in embed_config_loader.sparse_fields.items():
+            if field_config.embed:  # 只有启用了嵌入的字段才生成检索请求
+                request = SingleSearchRequest(
+                    anns_field=field_name,
+                    limit=50,
+                    search_params=field_config.search_params or {},
+                    metric_type=field_config.metric_type
+                )
+                requests.append(request)
+
+        # 如果没有配置任何检索字段，返回默认的三个检索请求
+        if not requests:
+            requests = [
+                SingleSearchRequest(
+                    anns_field="chunk_dense",
+                    limit=50,
+                    search_params={"ef": 64},
+                    metric_type="COSINE"
+                ),
+                SingleSearchRequest(
+                    anns_field="parent_chunk_dense",
+                    limit=50,
+                    search_params={"ef": 64},
+                    metric_type="COSINE"
+                ),
+                SingleSearchRequest(
+                    anns_field="questions_dense",
+                    limit=50,
+                    search_params={"ef": 64},
+                    metric_type="COSINE"
+                )
+            ]
+
+        return requests
+
+
+
+
 
     @tool("database_search")
     def database_search(query: str) -> str:
@@ -169,10 +202,13 @@ def create_db_search_tool(
             from .embed_config import SearchRequest, FusionSpec
             kb = get_kb(embed_config_loader.as_dict)
 
+            # 动态生成检索请求
+            search_requests = _create_requests(embed_config_loader)
+
             search_req = SearchRequest(
                 query=query,
                 collection_name=fixed_collection_name,
-                requests=default_requests,
+                requests=search_requests,
                 fuse=FusionSpec(method=embed_config_loader.fusion.method, k=embed_config_loader.fusion.k),
                 output_fields=embed_config_loader.default_search.output_fields,
                 top_k=embed_config_loader.default_search.top_k,
@@ -204,115 +240,3 @@ def create_db_search_tool(
     db_tool_node = ToolNode([db_search_tool])
 
     return db_search_tool, db_search_llm, db_tool_node
-
-
-def main():
-    """主函数：测试 embed_search 模块功能"""
-    import sys
-
-    # 配置日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    logger.info("=" * 60)
-    logger.info("开始测试 embed_search 模块")
-    logger.info("=" * 60)
-
-    try:
-        # 加载配置
-        from embed_loader import EmbedConfigLoader
-        config = EmbedConfigLoader()
-        logger.info(f"配置加载成功，Milvus集合名称: {config.milvus.collection_name}")
-
-        # 初始化LLM（使用默认配置，可以根据实际情况修改）
-        from langchain_openai import ChatOpenAI
-
-        logger.info("初始化LLM...")
-        # 从环境变量或配置文件读取LLM配置
-        import os
-        llm = ChatOpenAI(
-            model=os.getenv("LLM_MODEL", "qwen3:4b"),
-            temperature=0.1,
-            base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
-            api_key=os.getenv("LLM_API_KEY", "sk-xxx")
-        )
-        logger.info(f"LLM初始化成功")
-
-        # 创建数据库检索工具
-        logger.info("创建数据库检索工具...")
-        db_search_tool, db_search_llm, db_tool_node = create_db_search_tool(
-            embed_config_loader=config,
-            power_model=llm
-        )
-        logger.info("数据库检索工具创建成功")
-
-        # 测试查询
-        test_query = "糖尿病的常见症状有哪些？"
-
-        logger.info(f"测试查询: {test_query}")
-
-        # 准备状态
-        state = {
-            "query": test_query,
-            "main_messages": [],
-            "other_messages": [],
-            "docs": [],
-            "answer": "",
-            "retry": 0,
-            "final": "",
-            "judge_result": ""
-        }
-
-        # 执行数据库检索
-        logger.info("开始执行数据库检索...")
-        state = llm_db_search(
-            state=state,
-            llm=db_search_llm,
-            db_tool_node=db_tool_node,
-            show_debug=True
-        )
-
-        # 输出结果
-        logger.info("=" * 60)
-        logger.info("检索结果汇总")
-        logger.info("=" * 60)
-        logger.info(f"检索到文档数量: {len(state['docs'])}")
-
-        if state['docs']:
-            logger.info("\n检索到的文档内容:")
-            for i, doc in enumerate(state['docs'], 1):
-                logger.info(f"\n--- 文档 {i} ---")
-                logger.info(f"内容: {doc.page_content[:300]}...")
-                logger.info(f"元数据: {doc.metadata}")
-        else:
-            logger.warning("未检索到任何文档")
-
-        # 测试直接调用工具
-        logger.info("\n" + "=" * 60)
-        logger.info("测试直接调用数据库检索工具")
-        logger.info("=" * 60)
-
-        tool_result = db_search_tool.invoke({"query": "高血压的治疗方法"})
-        result_data = json.loads(tool_result)
-
-        logger.info(f"直接调用工具返回结果数量: {len(result_data)}")
-        if result_data:
-            for i, item in enumerate(result_data[:2], 1):  # 只显示前2条
-                logger.info(f"\n--- 工具结果 {i} ---")
-                logger.info(f"内容: {item['page_content'][:1000]}...")
-
-        logger.info("\n" + "=" * 60)
-        logger.info("测试完成！")
-        logger.info("=" * 60)
-
-    except Exception as e:
-        logger.error(f"测试过程中发生错误: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

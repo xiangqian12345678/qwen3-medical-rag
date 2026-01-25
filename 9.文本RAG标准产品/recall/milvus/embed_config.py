@@ -14,7 +14,6 @@ class MilvusConfig(BaseModel):
     drop_old: bool = False
     auto_id: bool = False
 
-
 # =============================================================================
 # 稠密向量字段配置
 # =============================================================================
@@ -104,8 +103,8 @@ class EmbedConfig(BaseModel):
 # 检索请求模型
 # =============================================================================
 # 下面两个类型没有用，将来可以删除
-# AnnsField = Literal["chunk_dense", "parent_chunk_dense", "summary_dense", "questions_dense", "chunk_sparse"]
-#
+AnnsField = Literal["chunk_dense", "parent_chunk_dense", "summary_dense", "questions_dense", "chunk_sparse"]
+
 # OutputFields = Literal[
 #     "pk", "origin_pk", "vector_id", "chunk", "parent_chunk", "summary", "questions",
 #     "document", "source", "source_name", "lt_doc_id", "chunk_id", "hash_id"
@@ -119,7 +118,6 @@ class FusionSpec(BaseModel):
     weights: Optional[Dict[str, float]] = Field(default=None, description="加权融合的权重")
 
 
-# TODO 为什么没有用 collection_name
 class SingleSearchRequest(BaseModel):
     """单个检索请求"""
     anns_field: AnnsField = Field(description="向量检索字段")

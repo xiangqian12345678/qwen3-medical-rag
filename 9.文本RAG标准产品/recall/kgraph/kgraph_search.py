@@ -5,43 +5,36 @@
 import json
 import logging
 from typing import List
-from typing import TYPE_CHECKING
+from typing_extensions import TypedDict
 
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import SystemMessage, ToolMessage, HumanMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
+from .kg_loader import KGraphConfigLoader
 from .kg_templates import get_prompt_template
 from .kg_utils import json_to_list_document, _should_call_tool
 from .kgraph_searcher import GraphSearcher
 from .neo4j_connection import Neo4jConnection
-from .kg_loader import KGraphConfigLoader
-
-if TYPE_CHECKING:
-    from typing_extensions import TypedDict
 
 
-    class SearchMessagesState(TypedDict, total=False):
-        query: str
-        main_messages: List
-        other_messages: List
-        docs: List[Document]
-        answer: str
-        retry: int
-        final: str
-        judge_result: str
+class KGraphRecallState(TypedDict, total=False):
+    query: str
+    other_messages: List
+    docs: List[Document]
+
 
 logger = logging.getLogger(__name__)
 
 
 def llm_kgraph_search(
-        state: "SearchMessagesState",
+        state: "KGraphRecallState",
         llm: BaseChatModel,
         kgraph_tool_node: ToolNode,
         show_debug: bool
-) -> "SearchMessagesState":
+) -> "KGraphRecallState":
     """
     知识图谱检索节点
 

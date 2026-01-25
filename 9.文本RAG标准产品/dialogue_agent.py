@@ -55,9 +55,8 @@ class DialogueAgent:
         # 文档召回
         graph.add_node("recall", partial(_recall, recall_graph=self.recall_graph, agent_config=self.agent_config))
         # 文档过滤
-        graph.add_node("filter_enhance",
-                       partial(_filter_enhance, agent_config=self.agent_config, embeddings_model=self.embeddings_model,
-                               llm=self.llm))
+        graph.add_node("filter_enhance", partial(_filter_enhance, agent_config=self.agent_config,
+                                                 embeddings_model=self.embeddings_model, llm=self.llm))
         # 文档排序
         graph.add_node("sort_enhance", partial(_sort_enhance, agent_config=self.agent_config, reranker=self.reranker))
 
@@ -302,7 +301,8 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
     docs = _sort_deduplicate_and_rank(docs=docs, agent_config=agent_config, reranker=reranker)
 
 
-def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: CrossEncoder) -> List[Document]:
+def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: CrossEncoder) -> List[
+    Document]:
     # 1.基于模型重排序
     if agent_config.sort_docs_cross_encoder_enabled:
         docs = sort_docs_cross_encoder(docs, reranker)

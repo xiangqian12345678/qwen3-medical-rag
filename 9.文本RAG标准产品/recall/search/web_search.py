@@ -1,9 +1,8 @@
 """网络搜索模块"""
 """网络搜索模块"""
-import json  # 添加这一行
 import logging
 from typing import List
-from typing import TYPE_CHECKING
+from typing_extensions import TypedDict
 
 from langchain.output_parsers import OutputFixingParser
 from langchain.tools import tool
@@ -20,19 +19,11 @@ from .search_templates import get_prompt_template
 from .search_utils import del_think, format_document_str, json_to_list_document, _should_call_tool
 from .web_searcher import get_ws, reset_kb
 
-if TYPE_CHECKING:
-    from typing_extensions import TypedDict
 
-
-    class SearchMessagesState(TypedDict, total=False):
-        query: str
-        main_messages: List
-        other_messages: List
-        docs: List[Document]
-        answer: str
-        retry: int
-        final: str
-        judge_result: str
+class WebSearchState(TypedDict, total=False):
+    query: str
+    other_messages: List
+    docs: List[Document]
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +39,12 @@ class NetworkSearchResult(BaseModel):
 
 
 def llm_network_search(
-        state: "SearchMessagesState",
+        state: "WebSearchState",
         judge_llm: BaseChatModel,
         network_search_llm: BaseChatModel,
         network_tool_node: ToolNode,
         show_debug: bool
-) -> "SearchMessagesState":
+) -> "WebSearchState":
     """
     联网检索节点
 
