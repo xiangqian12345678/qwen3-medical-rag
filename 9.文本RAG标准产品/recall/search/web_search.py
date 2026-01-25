@@ -185,7 +185,7 @@ def create_web_search_tool(
         """
         results: List[Document] = web_searcher.search(query, search_cnt)
         # 转换Document对象为字典列表
-        results_dict = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in results]
+        results_dict = [{"page_content": doc.page_content, "metadata": {"source":"web_search", "query":query}} for doc in results]
         return json.dumps(
             results_dict,
             ensure_ascii=False,

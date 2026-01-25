@@ -1,12 +1,12 @@
 """搜索图：用于执行单个查询的RAG检索流程"""
+import json
 import logging
 import sys
 from functools import partial
 from pathlib import Path
-from typing import List, Union
+from typing import List
 
 from dotenv import load_dotenv
-from sklearn.metrics import recall_score
 
 from app_config import APPConfig
 from recall.kgraph.kg_loader import KGraphConfigLoader
@@ -20,7 +20,7 @@ if env_file.exists():
 
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
 from typing_extensions import TypedDict
 
@@ -46,7 +46,7 @@ class RecallState(TypedDict, total=False):
 
 
 # =============================================================================
-# 搜索图类
+# 搜索工具
 # =============================================================================
 class RecallGraph:
     """搜索图：执行单个查询的RAG检索流程"""
@@ -84,7 +84,7 @@ class RecallGraph:
 
         # 3.创建知识图谱搜索工具
         if app_config.agent.kgraph_search_enabled:
-            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader,llm)
+            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader, llm)
             self.kgraph_search_tool = kgraph_tool
             self.kgraph_search_llm = kgraph_llm
             self.kgraph_tool_node = kgraph_node
@@ -198,6 +198,27 @@ class RecallGraph:
 
         out_state: RecallState = self.search_graph.invoke(init_state)
         return out_state
+
+    def search(self, query: str) -> List[Document]:
+        docs: List[Document] = []
+        # 1. 调用数据库检索
+        tool_result = self.db_search_tool.invoke({"query": query})
+        db_docs = json.loads(tool_result)
+        docs.extend(db_docs)
+
+        # 2. 调用网络检索
+        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
+            tool_result = self.network_search_tool.invoke(query)
+            web_docs = json.loads(tool_result)
+            docs.extend(web_docs)
+
+        # 3. 调用知识图谱检索
+        if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
+            tool_result = self.kgraph_search_tool.invoke(query)
+            kg_docs = json.loads(tool_result)
+            docs.extend(kg_docs)
+
+        return docs
 
     def answer(self, query: str) -> str:
         """

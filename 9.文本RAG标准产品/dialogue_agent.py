@@ -116,32 +116,25 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
     new_state = agent_state.copy()
 
     # 1.定义query检索函数
-    def _run_one(single_query: str) -> RecallState:
-        """为单个查询创建初始 State 并运行 SearchGraph"""
-        init_state: RecallState = {
-            "query": single_query,
-            "main_messages": [HumanMessage(content=single_query)],
-            "other_messages": [],
-            "docs": [],
-            "answer": "",
-            "retry": recall_graph.appConfig.agent.max_attempts,
-            "final": "",
-        }
-        return recall_graph.run(init_state)
+    def _run_one(single_query: str) -> List[Document]:
+        docs = recall_graph.search(query=single_query)
+        return docs
 
     def _parallel_recall(query_list: List[str], max_parallel: int = 1) -> List[List[Document]]:
+        all_docs: List[List[Document]] = []
         with ThreadPoolExecutor(max_workers=min(len(query_list), max_parallel)) as recall_executor:
+
             future_list = []
             for single_query in query_list:
                 future_list.append(recall_executor.submit(_run_one, single_query))
 
             for single_future in as_completed(future_list):
                 try:
-                    recall_state: RecallState = single_future.result()
-                    return recall_state.get("docs", [])
+                    docs = single_future.result()
+                    all_docs.append(docs)
                 except Exception as e:
                     print('generated an exception: %s' % e)
-        return []
+        return all_docs
 
     def is_empty(s: str | None) -> bool:
         return not s or not s.strip()
@@ -160,8 +153,8 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
         # 3.1 处理rewrite_query
         rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
         if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
-            out_state: RecallState = _run_one(rewrite_query.query)
-            new_state["rewrite_query_docs"] = out_state.get("docs", [])
+            docs: List[Document] = _run_one(rewrite_query.query)
+            new_state["rewrite_query_docs"] =  docs
 
         # 3.2 处理multi_queries
         multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
@@ -173,14 +166,14 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
         # 3.3 处理superordinate_query
         superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
         if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.query):
-            out_state: RecallState = _run_one(superordinate_query.query)
-            new_state["superordinate_query_docs"] = out_state.get("docs", [])
+            docs: List[Document] = _run_one(superordinate_query.query)
+            new_state["superordinate_query_docs"] = docs
 
         # 3.4 处理hypothetical_answer
         hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
         if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.query):
-            out_state: RecallState = _run_one(hypothetical_answer.query)
-            new_state["hypothetical_answer_docs"] = out_state.get("docs", [])
+            docs: List[Document] = _run_one(hypothetical_answer.query)
+            new_state["hypothetical_answer_docs"] = docs
 
         return new_state
 

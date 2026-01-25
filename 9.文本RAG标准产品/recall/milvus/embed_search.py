@@ -188,9 +188,6 @@ def create_db_search_tool(
         return requests
 
 
-
-
-
     @tool("database_search")
     def database_search(query: str) -> str:
         """
