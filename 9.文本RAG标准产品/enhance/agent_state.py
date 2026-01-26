@@ -78,12 +78,12 @@ class AgentState(TypedDict, total=False):
     dialogue_messages: List[BaseMessage]  # 主对话历史
     asking_messages: List[List[BaseMessage]]  # 每一轮追问形成一组子对话
     background_info: str  # 从追问中抽取的背景摘要
-    curr_input: str  # 当前用户输入
+    curr_input: str  # 最终触发处理流程的最后用户输入
     multi_summary: List[str]  # 多轮对话摘要列表
 
     ask_obj: AskMess  # 是否需要继续追问
 
-    # ---------- curr_input生成 ----------
+    # ---------- background_info生成 ----------
     query_results: List[Document]
 
     # ---------- 子问题生成 ----------

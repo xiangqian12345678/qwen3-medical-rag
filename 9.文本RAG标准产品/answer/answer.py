@@ -18,6 +18,7 @@ class AnswerState(TypedDict, total=False):
     docs: List[Document]
     answer: str
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,11 +62,7 @@ def generate_answer(
     if show_debug:
         logger.info(f"RAG回答: {rag_ai.content}")
 
-    if not isinstance(state["main_messages"][-1], AIMessage):
-        state["main_messages"].append(rag_ai)
-    else:
-        state["main_messages"].pop()
-        state["main_messages"].append(rag_ai)
+    # TODO性能信息添加
 
     state["answer"] = rag_ai.content
     return state

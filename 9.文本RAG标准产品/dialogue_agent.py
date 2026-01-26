@@ -5,6 +5,7 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from sentence_transformers import CrossEncoder
@@ -341,9 +342,28 @@ def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, 
 
 def _answer(state: AgentState, llm: BaseChatModel, show_debug) -> AgentState:
     answer_state = AnswerState(query=state["curr_input"], docs=state["docs"], )
-    answer_state = generate_answer(answer_state, llm, show_debug)
 
-    state["final_answer"] = answer_state.get("answer", "")
+    # 1. 生成回答
+    answer_state = generate_answer(answer_state, llm, show_debug)
+    answer_str = answer_state.get("answer", "")
+    state["final_answer"] = answer_str
+
+    # 2. 存储主对话(多轮补充后的用户最后输入和最终答案)
+    state["dialogue_messages"].append(
+        HumanMessage(content=state["curr_input"])
+    )
+    state["dialogue_messages"].append(
+        AIMessage(content=answer_str)
+    )
+
+    # 3. 存储问答字符串
+    if len(state["asking_messages"][-1]) > 0:
+        question = state["background_info"]  # 问题和问题补充后的总结，也是后续操作的关键
+        question_answer = question + "\n" + answer_str
+        state["multi_summary"].append(question_answer)
+
+    # 4. 确保历史消息不要超过一定数量
+
     return state
 
 
@@ -353,3 +373,59 @@ def route_ask_again(state: AgentState) -> str:
         "ask" if state["ask_obj"].need_ask and state["curr_ask_num"] < state["max_ask_num"]
         else "pass"
     )
+
+
+def _history_clean(state: AgentState, keep_count: int = 10):
+    '''
+    # ---------- 对话与上下文 ----------
+    dialogue_messages: List[BaseMessage]  # 主对话历史
+    asking_messages: List[List[BaseMessage]]  # 每一轮追问形成一组子对话
+    background_info: str  # 从追问中抽取的摘要
+    curr_input: str  # 当前用户输入
+    multi_summary: List[str]  # 多轮对话摘要列表
+
+    ask_obj: AskMess  # 是否需要继续追问
+
+    # ---------- curr_input生成 ----------
+    query_results: List[Document]
+
+    # ---------- 子问题生成 ----------
+    sub_query: "SubQueries"  # 子查询规划结果
+    sub_query_results: List[List[Document]]  # 子查询执行结果
+
+    # ---------- 问题重构 ----------
+    rewrite_query: "RewriteQuery"  # 并行问题生成
+    rewrite_query_docs: List[Document]  # 改写问题执行结果
+
+    # ---------- 多问题生成 ----------
+    multi_query: "MultiQueries"  # 并行问题生成
+    multi_query_docs: List[List[Document]]  # 并行问题执行结果
+
+    # ---------- 上位问题生成 ----------
+    superordinate_query: "SuperordinateQuery"  # 上位问题生成
+    superordinate_query_docs: List[Document]  # 上位问题执行结果
+
+    # ---------- 假设性回答 ----------
+    hypothetical_answer: "HypotheticalAnswer"  # 假设性回答
+    hypothetical_answer_docs: List[Document]  # 假设性回答执行结果
+
+    # ---------- 一轮会话中最终检索到的文档 ----------
+    docs: List[Document]
+
+    # ---------- 控制变量 ----------
+    max_ask_num: int  # 最大追问轮次
+    curr_ask_num: int  # 当前已追问次数
+
+    # ---------- 输出 & 调试 ----------
+    final_answer: str  # 最终答案（可供 UI 使用）
+    performance: List[Any]  # 调试 / 性能信息
+    '''
+
+    # dialogue_messages: List[BaseMessage]  # 主对话历史
+    # asking_messages: List[List[BaseMessage]]  # 每一轮追问形成一组子对话
+    # multi_summary: List[str]  # 多轮对话摘要列表
+    # performance: List[Any]  # 调试 / 性能信息
+    state["dialogue_messages"] = state["dialogue_messages"][-keep_count:]
+    state["asking_messages"] = state["asking_messages"][-keep_count:]
+    state["multi_summary"] = state["multi_summary"][-keep_count / 2:]
+    state["performance"] = state["performance"][-keep_count:]

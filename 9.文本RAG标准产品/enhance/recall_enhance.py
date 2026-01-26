@@ -7,7 +7,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 
-from .agent_state import AgentState, MultiQueries
+from .agent_state import AgentState, MultiQueries, SubQueries, SuperordinateQuery, HypotheticalAnswer
 from .enhance_templates import get_prompt_template
 from .utils import strip_think_get_tokens
 
@@ -20,6 +20,9 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     parser = PydanticOutputParser(pydantic_object=MultiQueries)
     fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
 
+    # 构建多轮对话摘要
+    multi_summary_text = "\n".join(state.get("multi_summary", [])) if state.get("multi_summary") else ""
+
     # 构建对话提示模板
     prompt = ChatPromptTemplate.from_messages([
         (
@@ -28,6 +31,7 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
                 format_instructions=parser.get_format_instructions()
                 .replace("{", "{{")
                 .replace("}", "}}"),
+                summary=multi_summary_text,
             ),
         ),
         # 插入主对话历史（不含追问过程的完整对话）
@@ -36,15 +40,12 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
         ("user", get_prompt_template("multi_query")["user"]),
     ])
 
-    # 获取当前追问轮次的历史消息
-    curr_ask_history = [] if state["curr_ask_num"] == 0 else state["asking_messages"][-1]
 
     #  构建执行链并调用 LLM
     ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
         "background_info": state["background_info"],
         "question": state["curr_input"],
-        "asking_history": curr_ask_history,
-        "summary": state["multi_summary"],
+        "dialogue_messages": state["dialogue_messages"],
     })
 
     #  解析 LLM 输出
@@ -161,6 +162,8 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
     # ========================================================
     # 步骤 2: 构建 Prompt 模板
     # ========================================================
+    multi_summary_text = "\n".join(state.get("multi_summary", [])) if state.get("multi_summary") else ""
+
     prompt = ChatPromptTemplate.from_messages([
         (
             "system",
@@ -170,7 +173,7 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
                 format_instructions=parser.get_format_instructions()
                 .replace("{", "{{")
                 .replace("}", "}}"),
-                summary="",  # superordinate_query 不需要 summary 参数，传入空字符串
+                summary=multi_summary_text,  # superordinate_query 不需要 summary 参数，传入空字符串
             ),
         ),
         # 插入主对话历史（不含追问过程的完整对话）
@@ -224,6 +227,8 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
     # ========================================================
     # 步骤 2: 构建 Prompt 模板
     # ========================================================
+    multi_summary_text = "\n".join(state.get("multi_summary", [])) if state.get("multi_summary") else ""
+
     prompt = ChatPromptTemplate.from_messages([
         (
             "system",
@@ -233,7 +238,7 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
                 format_instructions=parser.get_format_instructions()
                 .replace("{", "{{")
                 .replace("}", "}}"),
-                summary="",  # hypothetical_answer 不需要 summary 参数，传入空字符串
+                summary=multi_summary_text,  # hypothetical_answer 不需要 summary 参数，传入空字符串
             ),
         ),
         # 插入主对话历史（不含追问过程的完整对话）
