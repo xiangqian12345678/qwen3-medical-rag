@@ -245,9 +245,9 @@ class SearchGraph:
         self.db_tool_node = db_node
 
         # 创建网络搜索工具(如果未启动，均赋值为: None)
-        if appConfig.agent.network_search_enabled:
+        if appConfig.agent_config.network_search_enabled:
             web_tool, web_llm, web_node = create_web_search_tool(
-                search_cnt=appConfig.agent.network_search_cnt,
+                search_cnt=appConfig.agent_config.network_search_cnt,
                 power_model=power_model
             )
             self.network_search_tool = web_tool
@@ -267,7 +267,7 @@ class SearchGraph:
         self.kgraph_tool_node = kgraph_node
 
         # 创建用于回答的LLM客户端
-        self.llm = create_llm_client(appConfig.llm)
+        self.llm = create_llm_client(appConfig.llm_config)
         self.search_graph = None
 
     def build_search_graph(self):
@@ -283,28 +283,28 @@ class SearchGraph:
             llm_db_search,
             llm=self.db_search_llm,
             db_tool_node=self.db_tool_node,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.dialogue_config.console_debug
         )
         graph.add_node("db_search", db_search_node_func)
 
         # 添加web_search节点
-        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
             network_search_node_func = partial(
                 llm_network_search,
                 judge_llm=self.llm,
                 network_search_llm=self.network_search_llm,
                 network_tool_node=self.network_tool_node,
-                show_debug=self.appConfig.multi_dialogue_rag.console_debug
+                show_debug=self.appConfig.dialogue_config.console_debug
             )
             graph.add_node("web_search", network_search_node_func)
 
         # 添加知识图谱搜索节点
-        if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
+        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
             kgraph_search_node_func = partial(
                 llm_kgraph_search,
                 llm=self.kgraph_search_llm,
                 kgraph_tool_node=self.kgraph_tool_node,
-                show_debug=self.appConfig.multi_dialogue_rag.console_debug
+                show_debug=self.appConfig.dialogue_config.console_debug
             )
             graph.add_node("kgraph_search", kgraph_search_node_func)
 
@@ -312,7 +312,7 @@ class SearchGraph:
         rag_node_func = partial(
             rag_node,
             llm=self.llm,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.dialogue_config.console_debug
         )
         graph.add_node("rag", rag_node_func)
 
@@ -324,7 +324,7 @@ class SearchGraph:
         judge_node_func = partial(
             judge_node,
             llm=self.llm,
-            show_debug=self.appConfig.multi_dialogue_rag.console_debug
+            show_debug=self.appConfig.dialogue_config.console_debug
         )
         graph.add_node("judge", judge_node_func)
 
@@ -336,12 +336,12 @@ class SearchGraph:
         last_node = "db_search"
 
         # 2.1.2 网络召回
-        if self.appConfig.agent.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
         # 2.1.3 知识图谱召回
-        if self.appConfig.agent.kgraph_search_enabled and self.kgraph_tool_node is not None:
+        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
             graph.add_edge(last_node, "kgraph_search")
             last_node = "kgraph_search"
 
@@ -392,7 +392,7 @@ class SearchGraph:
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": self.appConfig.agent.max_attempts,
+            "retry": self.appConfig.agent_config.max_attempts,
             "final": "",
             "judge_result": ""
         }
@@ -425,7 +425,7 @@ if __name__ == "__main__":
        ollama pull bge-m3:latest  # 嵌入模型
        ollama pull qwen3:4b      # LLM模型
 
-    3. 确保配置文件路径正确（当前目录下的 multi_dialogue_agent.yaml）
+    3. 确保配置文件路径正确（当前目录下的 rag_config.yaml）
 
     ============ 运行方式 ============
 
@@ -471,12 +471,12 @@ if __name__ == "__main__":
         logger.info(f"配置加载成功!")
         logger.info(f"  - Milvus: {milvus_config_loader.milvus.uri}")
         logger.info(f"  - Collection: {milvus_config_loader.milvus.collection_name}")
-        logger.info(f"  - LLM: {rag_config.llm.model} ({rag_config.llm.provider})")
-        logger.info(f"  - 网络搜索: {'启用' if rag_config.agent.network_search_enabled else '禁用'}")
+        logger.info(f"  - LLM: {rag_config.llm_config.model} ({rag_config.llm_config.provider})")
+        logger.info(f"  - 网络搜索: {'启用' if rag_config.agent_config.network_search_enabled else '禁用'}")
 
         # 2. 创建LLM客户端
         logger.info("\n[2/5] 创建LLM客户端...")
-        power_model = create_llm_client(rag_config.llm)
+        power_model = create_llm_client(rag_config.llm_config)
         logger.info(f"LLM客户端创建成功!")
 
         # 3. 初始化SearchGraph

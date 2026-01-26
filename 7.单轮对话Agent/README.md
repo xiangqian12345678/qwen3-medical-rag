@@ -82,13 +82,13 @@ config_loader = ConfigLoader()
 config = config_loader.appConfig
 
 # 创建LLM客户端
-power_llm = create_llm_client(config.llm)
+power_llm = create_llm_client(config.llm_config)
 
 # 创建Agent
 agent = SingleDialogueAgent(config, power_llm)
 
 # 提问
-answer = agent.answer("高血压的症状有哪些？")
+answer = agent.generate_answer("高血压的症状有哪些？")
 print(answer)
 ```
 

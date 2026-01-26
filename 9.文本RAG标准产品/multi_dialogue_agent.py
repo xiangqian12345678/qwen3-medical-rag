@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from typing import List, Any
 
-from langchain.output_parsers import OutputFixingParser
+from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     BaseMessage, HumanMessage, AIMessage
@@ -426,7 +426,7 @@ def run_parallel_subgraphs(state: MedicalAgentState, search_graph: "SearchGraph"
             "other_messages": [],
             "docs": [],
             "answer": "",
-            "retry": search_graph.appConfig.agent.max_attempts,
+            "retry": search_graph.appConfig.agent_config.max_attempts,
             "final": "",
         }
         return search_graph.run(init_state)
@@ -488,7 +488,7 @@ class MultiDialogueAgent:
         """
         self.config = app_config
         self.power_model = power_model
-        self.normal_llm = create_llm_client(app_config.llm)
+        self.normal_llm = create_llm_client(app_config.llm_config)
 
         # 延迟导入SearchGraph以避免循环依赖
         try:
@@ -625,7 +625,7 @@ class MultiDialogueAgent:
             "multi_summary": [],
             "curr_input": "",
             "sub_query_results": [],
-            "max_ask_num": self.config.agent.max_ask_num,
+            "max_ask_num": self.config.agent_config.max_ask_num,
             "curr_ask_num": 0,
             "final_answer": "",
             "performance": [],
@@ -654,7 +654,7 @@ class MultiDialogueAgent:
             "multi_summary": [],
             "curr_input": "",
             "sub_query_results": [],
-            "max_ask_num": self.config.agent.max_ask_num,
+            "max_ask_num": self.config.agent_config.max_ask_num,
             "curr_ask_num": 0,
             "final_answer": "",
             "performance": [],

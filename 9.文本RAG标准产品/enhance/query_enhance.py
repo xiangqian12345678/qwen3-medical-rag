@@ -1,8 +1,7 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
 import logging
-from typing import List
 
-from langchain.output_parsers import OutputFixingParser
+from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     HumanMessage, AIMessage
@@ -12,9 +11,9 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
 
-from enhance.agent_state import AgentState
-from enhance_templates import get_prompt_template
-from enhance.utils import strip_think_get_tokens
+from .agent_state import AgentState, AskMess, RewriteQuery
+from .enhance_templates import get_prompt_template
+from .utils import strip_think_get_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +39,6 @@ def intent_recognition(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 
 # 2.query改写
-class RewriteQuery(BaseModel):
-    query: str = Field(
-        default="",
-        description="对原始问题的检索友好改写"
-    )
-
-
 def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
     判断是否需要改写query，并格局需要优化query
@@ -127,18 +119,6 @@ def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 
 # 3.完善问题
-class AskMess(BaseModel):
-    """LLM 用于判断是否需要继续向用户追问的信息结构"""
-    need_ask: bool = Field(
-        default=False,
-        description="根据已有信息，是否需要继续向用户追问"
-    )
-    questions: List[str] = Field(
-        default_factory=list,
-        description="需要向用户询问的问题列表"
-    )
-
-
 def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         判断是否需要向用户继续追问关键信息

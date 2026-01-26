@@ -1,10 +1,11 @@
 """网络搜索模块"""
+from langchain_classic.output_parsers import OutputFixingParser
+
 """网络搜索模块"""
 import logging
 from typing import List
 from typing_extensions import TypedDict
 
-from langchain.output_parsers import OutputFixingParser
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel

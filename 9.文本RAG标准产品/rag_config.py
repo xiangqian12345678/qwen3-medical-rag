@@ -18,6 +18,29 @@ class LLMConfig(BaseModel):
 
 
 # =============================================================================
+# Embedding配置
+# =============================================================================
+class EmbeddingConfig(BaseModel):
+    """Embedding配置"""
+    provider: Literal['openai', 'dashscope', 'ollama'] = 'ollama'
+    model: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    dimension: Optional[int] = None
+
+
+# =============================================================================
+# Reranker配置
+# =============================================================================
+class RerankerConfig(BaseModel):
+    """Reranker配置"""
+    provider: Literal['dashscope'] = 'dashscope'
+    model: str = "text-reranker-v2"
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+# =============================================================================
 # Agent配置
 # =============================================================================
 class AgentConfig(BaseModel):
@@ -61,7 +84,7 @@ class AgentConfig(BaseModel):
 # =============================================================================
 # 多轮对话RAG配置
 # =============================================================================
-class MultiDialogueRagConfig(BaseModel):
+class DialogueConfig(BaseModel):
     """多轮对话RAG配置"""
     estimate_token_fun: str = "avg"
     llm_max_token: int = 1024
@@ -81,5 +104,7 @@ class MultiDialogueRagConfig(BaseModel):
 class RAGConfig(BaseModel):
     """应用主配置"""
     llm: LLMConfig
+    embedding: EmbeddingConfig
+    reranker: RerankerConfig
     agent: AgentConfig
-    multi_dialogue_rag: MultiDialogueRagConfig
+    dialogue: DialogueConfig

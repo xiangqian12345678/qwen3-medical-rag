@@ -5,40 +5,55 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from sentence_transformers import CrossEncoder
 
-from agent import SearchGraph
+from answer.answer import generate_answer, AnswerState
 from app_config import APPConfig
-from enhance.agent_state import AgentState
+from enhance.agent_state import AgentState, AskMess
 from enhance.filter_enhance import filter_low_correction_doc_embeddings, filter_low_correction_doc_llm, \
     filter_low_correction_content, filter_redundant_doc_embeddings
-from enhance.query_enhance import query_refine, generate_summary, query_rewrite, RewriteQuery
+from enhance.query_enhance import query_refine, generate_summary, query_rewrite
 from enhance.recall_enhance import generate_multi_queries, generate_superordinate_query, generate_hypothetical_answer, \
-    generate_sub_queries, SubQueries, MultiQueries, SuperordinateQuery, HypotheticalAnswer
+    generate_sub_queries
+from enhance.agent_state import RewriteQuery, SubQueries, MultiQueries, SuperordinateQuery, HypotheticalAnswer
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
 from rag_config import AgentConfig
-from recall_graph import RecallGraph, RecallState
+from recall_graph import RecallGraph
 
 
 class DialogueAgent:
     def __init__(self, app_config: APPConfig, embeddings_model: Embeddings, llm: BaseChatModel,
                  reranker: CrossEncoder) -> None:
         self.app_config = app_config
-        self.agent_config = app_config.agent
+        self.agent_config = app_config.agent_config
         self.llm = llm
         self.embeddings_model = embeddings_model
         self.reranker = reranker
         self.recall_graph = RecallGraph(app_config, llm)
 
-        # 代理总图
-        self.agent_graph = None
+        # 对话状态
+        self.agent_state = AgentState(
+            curr_input="",
+            curr_ask_num=0,
+            max_ask_num=3,
+            dialogue_messages=[],
+            asking_messages=[],
+            background_info="",
+            performance=[],
+            ask_obj=AskMess(need_ask=False, questions=[])
+        )
 
-    def answer(self, user_input: str) -> str:
-        """回答用户输入"""
-        return self.llm.as_retriever()(user_input)
+        # 代理总图
+        self._build_graph()
+
+    def answer(self, query: str) -> AgentState:
+        # 创建输入状态
+        self.agent_state["curr_input"] = query
+
+        self.agent_state = self.agent_graph.invoke(self.agent_state)
+        return self.agent_state
 
     def _build_graph(self):
         """构建代理总图"""
@@ -59,6 +74,8 @@ class DialogueAgent:
                                                  embeddings_model=self.embeddings_model, llm=self.llm))
         # 文档排序
         graph.add_node("sort_enhance", partial(_sort_enhance, agent_config=self.agent_config, reranker=self.reranker))
+        # 生成答案
+        graph.add_node("answer", partial(_answer, llm=self.llm, show_debug=True))
 
         # 3.构建边
         # 起始边
@@ -76,7 +93,12 @@ class DialogueAgent:
         # 文档过滤
         graph.add_edge("filter_enhance", "sort_enhance")
         # 文档排序
-        graph.add_edge("sort_enhance", END)
+        graph.add_edge("sort_enhance", "answer")
+        # 回答问题
+        graph.add_edge("answer", END)
+
+        # 4.构建代理总图
+        self.agent_graph = graph.compile()
 
 
 def _query_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: BaseChatModel) -> AgentState:
@@ -154,7 +176,7 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
         rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
         if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
             docs: List[Document] = _run_one(rewrite_query.query)
-            new_state["rewrite_query_docs"] =  docs
+            new_state["rewrite_query_docs"] = docs
 
         # 3.2 处理multi_queries
         multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
@@ -292,6 +314,8 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
             docs.extend(agent_state.get("hypothetical_answer_docs", []))
     # 2.排序
     docs = _sort_deduplicate_and_rank(docs=docs, agent_config=agent_config, reranker=reranker)
+    agent_state["docs"] = docs
+    return agent_state
 
 
 def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: CrossEncoder) -> List[
@@ -313,6 +337,14 @@ def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, 
         new_docs = sort_docs_by_loss_of_location(new_docs)
 
     return new_docs
+
+
+def _answer(state: AgentState, llm: BaseChatModel, show_debug) -> AgentState:
+    answer_state = AnswerState(query=state["curr_input"], docs=state["docs"], )
+    answer_state = generate_answer(answer_state, llm, show_debug)
+
+    state["final_answer"] = answer_state.get("answer", "")
+    return state
 
 
 def route_ask_again(state: AgentState) -> str:

@@ -78,7 +78,7 @@ config_loader = ConfigLoader()
 rag = MultiDialogueRag(config_loader.config)
 
 # 提问（指定session_id维护会话上下文）
-result = rag.answer(
+result = rag.generate_answer(
     query="什么是高血压？",
     session_id="user_001",
     return_document=True

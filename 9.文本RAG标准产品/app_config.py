@@ -13,6 +13,6 @@ class APPConfig:
         self.kgraph_config_loader = kgraph_config_loader
 
         # 拆解： RAGConfig
-        self.llm = rag_config_loader.config.llm
-        self.agent = rag_config_loader.config.agent
-        self.multi_dialogue_rag = rag_config_loader.config.multi_dialogue_rag
+        self.llm_config = rag_config_loader.config.llm
+        self.agent_config = rag_config_loader.config.agent
+        self.dialogue_config = rag_config_loader.config.dialogue

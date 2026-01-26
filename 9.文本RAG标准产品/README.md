@@ -137,19 +137,19 @@ config_manager = ConfigLoader()
 config = config_manager.appConfig
 
 # 创建LLM客户端
-power_model = create_llm_client(config.llm)
+power_model = create_llm_client(config.llm_config)
 
 # 初始化Agent
 agent = MultiDialogueAgent(config, power_model=power_model)
 
 # 第一轮对话
-state = agent.answer("我这两天肚子痛")
+state = agent.generate_answer("我这两天肚子痛")
 
 # 如果需要追问
 if state["ask_obj"].need_ask:
     print(f"需要追问: {state['ask_obj'].questions}")
     # 获取用户回复后继续
-    state = agent.answer("肚子疼得厉害，从昨天开始")
+    state = agent.generate_answer("肚子疼得厉害，从昨天开始")
 
 # 获取最终答案
 print(state["final_answer"])
@@ -157,7 +157,7 @@ print(state["final_answer"])
 
 ### 配置说明
 
-配置文件 `multi_dialogue_agent.yaml` 主要参数：
+配置文件 `rag_config.yaml` 主要参数：
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
@@ -165,7 +165,7 @@ print(state["final_answer"])
 | `agent.max_attempts` | RAG最大重试次数 | 2 |
 | `agent.max_ask_num` | 最大追问轮次 | 5 |
 | `agent.network_search_enabled` | 是否启用网络搜索 | false |
-| `multi_dialogue_rag.console_debug` | 控制台调试开关 | true |
+| `dialogue.console_debug` | 控制台调试开关 | true |
 
 ### 运行模式说明
 

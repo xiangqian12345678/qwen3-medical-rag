@@ -3,7 +3,7 @@ import logging
 from functools import partial
 from typing import List, Union
 
-from langchain.output_parsers import OutputFixingParser
+from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage

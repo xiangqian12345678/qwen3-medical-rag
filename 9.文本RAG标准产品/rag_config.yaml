@@ -52,7 +52,20 @@ llm:
   temperature: 0.3
   max_tokens: 2048
 
-multi_dialogue_rag:
+embedding:
+  provider: dashscope
+  model: text-embedding-v2
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+  dimension: 1536
+
+reranker:
+  provider: dashscope
+  model: text-reranker-v2
+  api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+  base_url: https://dashscope.aliyuncs.com/api/v1/services/rerankers/text-reranker/text-reranker
+
+dialogue:
   estimate_token_fun: avg
   llm_max_token: 1024
   max_token_threshold: 1.01

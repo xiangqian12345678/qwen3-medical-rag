@@ -62,10 +62,9 @@
 
 - **配置类**: `rag_config.py`
   - `LLMConfig`: LLM配置
-  - `DataConfig`: 数据字段配置
-  - `AgentConfig`: Agent配置（包含kgraph子配置）
-  - `MultiDialogueRagConfig`: 多轮对话RAG配置
-  - `AppConfig`: 应用主配置（聚合所有子模块配置）
+  - `AgentConfig`: Agent配置
+  - `DialogueRagConfig`: 多轮对话RAG配置
+  - `RAGConfig`: 应用主配置（聚合所有子模块配置）
 
 - **加载器**: `rag_loader.py`
   - `RAGConfigLoader`: 加载全局RAG配置，支持动态修改
@@ -79,7 +78,7 @@ from agent.kgraph.kg_loader import KGraphConfigLoader
 
 loader = KGraphConfigLoader()
 neo4j_config = loader.neo4j
-llm_config = loader.llm
+llm_config = loader.llm_config
 kgraph_agent_config = loader.kgraph_agent
 ```
 

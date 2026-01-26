@@ -53,7 +53,7 @@ class WebSearchTester:
 
             # 初始化LLM
             rag_config = RAGConfigLoader().config
-            power_model = create_llm_client(rag_config.llm)
+            power_model = create_llm_client(rag_config.llm_config)
             self.llm = power_model
             logger.info("✓ LLM初始化成功")
 

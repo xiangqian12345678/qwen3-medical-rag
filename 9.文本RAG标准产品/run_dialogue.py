@@ -8,9 +8,9 @@ import logging
 from app_config import APPConfig
 from recall.kgraph.kg_loader import KGraphConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
-from multi_dialogue_agent import MultiDialogueAgent
+from dialogue_agent import DialogueAgent
 from rag_loader import RAGConfigLoader
-from enhance.utils import create_llm_client
+from utils import create_llm_client, create_embedding_client, create_reranker_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,10 +29,12 @@ def main():
     rag_config = rag_config_loader.config
 
     # 创建LLM客户端
-    power_model = create_llm_client(rag_config.llm_config)
+    llm_model = create_llm_client(rag_config.llm)
+    embed_model = create_embedding_client(rag_config.embedding)
+    reranker = create_reranker_client(rag_config.reranker)
 
     # 初始化多轮对话Agent
-    agent = MultiDialogueAgent(app_config=app_config, power_model=power_model)
+    agent = DialogueAgent(app_config=app_config, embeddings_model=embed_model, llm=llm_model, reranker=reranker)
 
     # 交互式对话
     print("=" * 50)
@@ -56,7 +58,7 @@ def main():
                 continue
 
             # 调用Agent
-            state = agent.answer(user_input=user_input)
+            state = agent.answer(query=user_input)
 
             # 处理追问 - 使用while循环支持多次追问
             while state["ask_obj"].need_ask:
@@ -75,7 +77,7 @@ def main():
                     continue
 
                 # 继续调用Agent
-                state = agent.answer(user_input=user_input)
+                state = agent.answer(query=user_input)
 
             # 输出最终回答
             print(f"\nAgent: {state['final_answer']}")

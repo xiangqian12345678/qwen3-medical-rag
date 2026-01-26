@@ -144,13 +144,13 @@ power_model = create_llm_client(config.llm)
 agent = MultiDialogueAgent(config, power_model=power_model)
 
 # 第一轮对话
-state = agent.answer("我这两天肚子痛")
+state = agent.generate_answer("我这两天肚子痛")
 
 # 如果需要追问
 if state["ask_obj"].need_ask:
     print(f"需要追问: {state['ask_obj'].questions}")
     # 获取用户回复后继续
-    state = agent.answer("肚子疼得厉害，从昨天开始")
+    state = agent.generate_answer("肚子疼得厉害，从昨天开始")
 
 # 获取最终答案
 print(state["final_answer"])

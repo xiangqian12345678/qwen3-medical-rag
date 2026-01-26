@@ -47,7 +47,7 @@ config_loader = ConfigLoader()
 rag = SimpleRAG(config=config_loader.config)
 
 # 执行查询
-result = rag.answer("肚子痛该怎么办？", return_document=True)
+result = rag.generate_answer("肚子痛该怎么办？", return_document=True)
 print(result['answer'])
 ```
 

@@ -1,29 +1,20 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
 import logging
-from typing import List
 
-from langchain.output_parsers import OutputFixingParser
+from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel, Field
-from enhance.agent_state import AgentState
 
-from enhance_templates import get_prompt_template
-from enhance.utils import strip_think_get_tokens
+from .agent_state import AgentState, MultiQueries
+from .enhance_templates import get_prompt_template
+from .utils import strip_think_get_tokens
 
 logger = logging.getLogger(__name__)
 
 
 # 1.生成多个问题
-class MultiQueries(BaseModel):
-    """LLM 根据已有query生成多个表达方式不通的query，但意义相同"""
-    queries: List[str] = Field(
-        default_factory=list,
-        description="语义相同的多个查询query"
-    )
-
 def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 创建解析器（将 LLM 输出解析为 MultiQueries 结构化对象）
     parser = PydanticOutputParser(pydantic_object=MultiQueries)
@@ -53,6 +44,7 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
         "background_info": state["background_info"],
         "question": state["curr_input"],
         "asking_history": curr_ask_history,
+        "summary": state["multi_summary"],
     })
 
     #  解析 LLM 输出
@@ -74,19 +66,6 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 
 # 2.生成子问题
-class SubQueries(BaseModel):
-    """LLM 用于判断是否需要拆分多个子查询的结构"""
-    need_split: bool = Field(
-        default=False,
-        description="是否需要拆分为多个独立子查询"
-    )
-
-    queries: List[str] = Field(
-        default_factory=list,
-        description="子查询列表（最多 3 个，相互独立）"
-    )
-
-
 def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         判断是否需要拆分多个子查询进行检索
@@ -169,13 +148,6 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 
 # 3.上位问题优化
-class SuperordinateQuery(BaseModel):
-    """LLM 用于生成上位问题的结构"""
-    superordinate_query: str = Field(
-        default="",
-        description="上位问题"
-    )
-
 def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         生成上位问题
@@ -198,6 +170,7 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
                 format_instructions=parser.get_format_instructions()
                 .replace("{", "{{")
                 .replace("}", "}}"),
+                summary="",  # superordinate_query 不需要 summary 参数，传入空字符串
             ),
         ),
         # 插入主对话历史（不含追问过程的完整对话）
@@ -236,14 +209,8 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
     new_state["performance"] = state["performance"] + [("superordinate_query", ai)]
     return new_state
 
-# 4.假设性答案
-class HypotheticalAnswer(BaseModel):
-    """LLM 用于生成假设性答案的结构"""
-    hypothetical_answer: str = Field(
-        default="",
-        description="假设性文档"
-    )
 
+# 4.假设性答案
 def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
         生成假设性答案
@@ -266,6 +233,7 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
                 format_instructions=parser.get_format_instructions()
                 .replace("{", "{{")
                 .replace("}", "}}"),
+                summary="",  # hypothetical_answer 不需要 summary 参数，传入空字符串
             ),
         ),
         # 插入主对话历史（不含追问过程的完整对话）

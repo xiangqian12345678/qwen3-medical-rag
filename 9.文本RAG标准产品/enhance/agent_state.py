@@ -1,17 +1,59 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
-from typing import List, Any
+from typing import List, Any, TYPE_CHECKING
 
 from langchain_core.documents import Document
 from langchain_core.messages import (
     BaseMessage
 )
 from pydantic import BaseModel, Field
-from sentence_transformers import CrossEncoder
 from typing_extensions import TypedDict
 
-from enhance.query_enhance import RewriteQuery
-from enhance.recall_enhance import MultiQueries, SubQueries, SuperordinateQuery, HypotheticalAnswer
-from search_graph import SearchMessagesState
+
+# =============================================================================
+# 结构化模型定义（LLM 输出约束）
+# =============================================================================
+class RewriteQuery(BaseModel):
+    query: str = Field(
+        default="",
+        description="对原始问题的检索友好改写"
+    )
+
+
+class MultiQueries(BaseModel):
+    """LLM 根据已有query生成多个表达方式不通的query，但意义相同"""
+    queries: List[str] = Field(
+        default_factory=list,
+        description="语义相同的多个查询query"
+    )
+
+
+class SubQueries(BaseModel):
+    """LLM 用于判断是否需要拆分多个子查询的结构"""
+    need_split: bool = Field(
+        default=False,
+        description="是否需要拆分为多个独立子查询"
+    )
+
+    queries: List[str] = Field(
+        default_factory=list,
+        description="子查询列表（最多 3 个，相互独立）"
+    )
+
+
+class HypotheticalAnswer(BaseModel):
+    """LLM 用于生成假设性答案的结构"""
+    hypothetical_answer: str = Field(
+        default="",
+        description="假设性文档"
+    )
+
+
+class SuperordinateQuery(BaseModel):
+    """LLM 用于生成上位问题的结构"""
+    superordinate_query: str = Field(
+        default="",
+        description="上位问题"
+    )
 
 
 # =============================================================================
@@ -45,27 +87,27 @@ class AgentState(TypedDict, total=False):
     query_results: List[Document]
 
     # ---------- 子问题生成 ----------
-    sub_query: SubQueries  # 子查询规划结果
+    sub_query: "SubQueries"  # 子查询规划结果
     sub_query_results: List[List[Document]]  # 子查询执行结果
 
     # ---------- 问题重构 ----------
-    rewrite_query: RewriteQuery  # 并行问题生成
+    rewrite_query: "RewriteQuery"  # 并行问题生成
     rewrite_query_docs: List[Document]  # 改写问题执行结果
 
     # ---------- 多问题生成 ----------
-    multi_query: MultiQueries  # 并行问题生成
+    multi_query: "MultiQueries"  # 并行问题生成
     multi_query_docs: List[List[Document]]  # 并行问题执行结果
 
     # ---------- 上位问题生成 ----------
-    superordinate_query: SuperordinateQuery  # 上位问题生成
+    superordinate_query: "SuperordinateQuery"  # 上位问题生成
     superordinate_query_docs: List[Document]  # 上位问题执行结果
 
     # ---------- 假设性回答 ----------
-    hypothetical_answer: HypotheticalAnswer  # 假设性回答
+    hypothetical_answer: "HypotheticalAnswer"  # 假设性回答
     hypothetical_answer_docs: List[Document]  # 假设性回答执行结果
 
-    # ----------  ----------
-    multi_dialogue_results: List[SearchMessagesState]  # 多轮对话执行结果
+    # ---------- 一轮会话中最终检索到的文档 ----------
+    docs: List[Document]
 
     # ---------- 控制变量 ----------
     max_ask_num: int  # 最大追问轮次
