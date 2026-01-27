@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 from langchain_community.document_transformers import LongContextReorder
@@ -38,41 +38,6 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: CrossEncoder) -> Lis
     sorted_docs = [docs[i] for i in sorted_indices]
 
     return sorted_docs
-
-
-def sort_docs_cross_encoder_v2(query: str, docs: List[Document], reranker: CrossEncoder) -> Tuple[
-    List[Document], List[float]]:
-    """
-    重排序-基于cross-encoder的重排序，返回文档和分数
-
-    Args:
-        query: 查询字符串
-        docs: 文档列表
-        reranker: CrossEncoder模型实例
-
-    Returns:
-        Tuple[排序后的文档列表, 对应的分数列表]
-    """
-    if not docs:
-        return [], []
-
-    # 提取文档的文本内容
-    doc_contents = [doc.page_content for doc in docs]
-
-    # 创建查询-文档对
-    pairs = [[query, doc_content] for doc_content in doc_contents]
-
-    # 计算相关性分数
-    scores = reranker.predict(pairs)
-
-    # 按分数降序排序
-    sorted_indices = np.argsort(scores)[::-1]
-
-    # 获取排序后的文档和分数
-    sorted_docs = [docs[i] for i in sorted_indices]
-    sorted_scores = [scores[i] for i in sorted_indices]
-
-    return sorted_docs, sorted_scores
 
 
 # 2.重排序-关键数据存储到首尾

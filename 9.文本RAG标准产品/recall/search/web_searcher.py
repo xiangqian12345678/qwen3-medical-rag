@@ -50,6 +50,8 @@ class WebSearcher:
                                 "title": hit.get("title", "N/A"),
                                 "url": hit.get("href", "N/A"),
                                 "rank": i,
+                                "source": "search",
+                                "query": query
                             },
                         )
                     )

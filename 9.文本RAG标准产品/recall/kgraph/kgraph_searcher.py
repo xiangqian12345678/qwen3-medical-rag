@@ -178,7 +178,8 @@ class GraphSearcher:
                         "entity_name": self.entity_index["names"][idx],
                         "entity_type": self.entity_index["types"][idx],
                         "similarity": float(sim),
-                        "source": "knowledge_graph"
+                        "source": "knowledge_graph",
+                        "query": query_text
                     }
 
                     documents.append(Document(page_content=content, metadata=metadata))
@@ -228,7 +229,8 @@ class GraphSearcher:
                         "node_id": rec['node_id'],
                         "entity_name": rec['name'],
                         "entity_type": rec['type'],
-                        "source": "knowledge_graph"
+                        "source": "knowledge_graph",
+                        "query": keyword
                     }
                     # 添加节点属性到metadata
                     if rec['props']:
@@ -281,7 +283,8 @@ class GraphSearcher:
                         "relation": rec['relation'],
                         "target": rec['target'],
                         "target_type": rec['target_type'],
-                        "data_source": "knowledge_graph"
+                        "data_source": "knowledge_graph",
+                        "query": entity_name
                     }
 
                     documents.append(Document(page_content=content, metadata=metadata))

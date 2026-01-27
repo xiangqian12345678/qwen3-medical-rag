@@ -137,7 +137,6 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
     import os
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()
-    cpu_count = 1
 
     # 1.定义query检索函数
     def _run_one(single_query: str) -> List[Document]:
@@ -171,35 +170,33 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
         doc_list_list: List[List[Document]] = _parallel_recall(query_list=sub_queries.queries,
                                                                max_parallel=cpu_count)
         new_state["sub_query_results"] = doc_list_list
-        return new_state
-    # 3. 否则处理全量检索
-    else:
-        # 3.1 处理rewrite_query
-        rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
-        if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
-            docs: List[Document] = _run_one(rewrite_query.query)
-            new_state["rewrite_query_docs"] = docs
 
-        # 3.2 处理multi_queries
-        multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
-        if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
-            doc_list_list: List[List[Document]] = _parallel_recall(query_list=multi_queries.queries,
-                                                                   max_parallel=cpu_count)
-            new_state["multi_query_docs"] = doc_list_list
+    # 3 处理rewrite_query
+    rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
+    if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
+        docs: List[Document] = _run_one(rewrite_query.query)
+        new_state["rewrite_query_docs"] = docs
 
-        # 3.3 处理superordinate_query
-        superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
-        if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
-            docs: List[Document] = _run_one(superordinate_query.superordinate_query)
-            new_state["superordinate_query_docs"] = docs
+    # 4 处理multi_queries
+    multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
+    if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
+        doc_list_list: List[List[Document]] = _parallel_recall(query_list=multi_queries.queries,
+                                                               max_parallel=cpu_count)
+        new_state["multi_query_docs"] = doc_list_list
 
-        # 3.4 处理hypothetical_answer
-        hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
-        if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
-            docs: List[Document] = _run_one(hypothetical_answer.hypothetical_answer)
-            new_state["hypothetical_answer_docs"] = docs
+    # 5 处理superordinate_query
+    superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
+    if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
+        docs: List[Document] = _run_one(superordinate_query.superordinate_query)
+        new_state["superordinate_query_docs"] = docs
 
-        return new_state
+    # 6 处理hypothetical_answer
+    hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
+    if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
+        docs: List[Document] = _run_one(hypothetical_answer.hypothetical_answer)
+        new_state["hypothetical_answer_docs"] = docs
+
+    return new_state
 
 
 def _filter_enhance(agent_state: AgentState, agent_config: AgentConfig, embeddings_model: Embeddings,
@@ -306,17 +303,16 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
         doc_list_list = agent_state.get("sub_query_results", [])
         for doc_list in doc_list_list:
             docs.extend(doc_list)
-    else:
-        if agent_config.query_rewrite_enabled:
-            docs.extend(agent_state.get("rewrite_query_docs", []))
-        if agent_config.generate_multi_queries_enabled:
-            doc_list_list = agent_state.get("multi_query_docs", [])
-            for doc_list in doc_list_list:
-                docs.extend(doc_list)
-        if agent_config.generate_superordinate_query_enabled:
-            docs.extend(agent_state.get("superordinate_query_docs", []))
-        if agent_config.generate_hypothetical_answer_enabled:
-            docs.extend(agent_state.get("hypothetical_answer_docs", []))
+    if agent_config.query_rewrite_enabled:
+        docs.extend(agent_state.get("rewrite_query_docs", []))
+    if agent_config.generate_multi_queries_enabled:
+        doc_list_list = agent_state.get("multi_query_docs", [])
+        for doc_list in doc_list_list:
+            docs.extend(doc_list)
+    if agent_config.generate_superordinate_query_enabled:
+        docs.extend(agent_state.get("superordinate_query_docs", []))
+    if agent_config.generate_hypothetical_answer_enabled:
+        docs.extend(agent_state.get("hypothetical_answer_docs", []))
     # 2.排序
     docs = _sort_deduplicate_and_rank(docs=docs, agent_config=agent_config, reranker=reranker)
     agent_state["docs"] = docs

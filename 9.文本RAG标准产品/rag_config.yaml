@@ -21,9 +21,9 @@ agent:
   query_refine_enabled: true
 
   # 召回强化
-  # 1.生成多个问题  2.生成子问题 3.上位问题生成 4.假设性答案生成
-  generate_multi_queries_enabled: true
-  generate_sub_queries_enabled: true
+  # 1.生成子问题 2.生成多个问题 3.上位问题生成 4.假设性答案生成
+  generate_sub_queries_enabled: false
+  generate_multi_queries_enabled: false
   generate_superordinate_query_enabled: true
   generate_hypothetical_answer_enabled: true
 
@@ -36,7 +36,7 @@ agent:
   filter_low_correction_doc_llm_enabled: false
   filter_low_correction_doc_embeddings_enabled: true
   low_correction_threshold: 0.65
-  filter_redundant_doc_embeddings_enabled: true
+  filter_redundant_doc_embeddings_enabled: false
   redundant_threshold: 0.95
 
   # 排序
