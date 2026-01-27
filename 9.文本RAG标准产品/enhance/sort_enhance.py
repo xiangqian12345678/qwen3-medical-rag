@@ -18,7 +18,7 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: DashScopeRerank) -> 
 
     Args:
         docs: 文档列表
-        reranker: CrossEncoder模型实例
+        reranker: DashScopeRerank模型实例
 
     Returns:
         Tuple[排序后的文档列表, 对应的分数列表]
@@ -36,7 +36,7 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: DashScopeRerank) -> 
             documents= [pair["doc"]],
             query=pair["query"]
         )
-        scores.append(results[0].score)
+        scores.append(results[0].metadata["relevance_score"])
 
     # 按分数降序排序
     sorted_indices = np.argsort(scores)[::-1]

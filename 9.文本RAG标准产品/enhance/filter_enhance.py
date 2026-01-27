@@ -53,8 +53,15 @@ def filter_low_correction_doc_embeddings(query: str, docs: List[Document],
     """
         压缩过滤-过滤低相关文档
     """
+    # DashScope embedding API 限制输入长度为 2048 字符
+    # 需要截断过长的文档内容
+    truncated_docs = []
+    for doc in docs:
+        truncated_content = doc.page_content[:2048] if len(doc.page_content) > 2048 else doc.page_content
+        truncated_docs.append(Document(page_content=truncated_content, metadata=doc.metadata))
+
     embeddings_filter = EmbeddingsFilter(embeddings=embeddings_model, similarity_threshold=low_correction_threshold)
-    filtered_docs = embeddings_filter.compress_documents(docs, query)
+    filtered_docs = embeddings_filter.compress_documents(truncated_docs, query)
     filter_docs_list: List[Document] = list(filtered_docs)
 
     return filter_docs_list
@@ -67,8 +74,15 @@ def filter_redundant_doc_embeddings(query: str, docs: List[Document],
     """
         冗余过滤-过滤高相关的重复文档，只保留一份
     """
+    # DashScope embedding API 限制输入长度为 2048 字符
+    # 需要截断过长的文档内容
+    truncated_docs = []
+    for doc in docs:
+        truncated_content = doc.page_content[:2048] if len(doc.page_content) > 2048 else doc.page_content
+        truncated_docs.append(Document(page_content=truncated_content, metadata=doc.metadata))
+
     redundant_filter = EmbeddingsRedundantFilter(embeddings=embeddings_model, similarity_threshold=redundant_threshold)
-    filtered_docs = redundant_filter.transform_documents(docs, query=query)
+    filtered_docs = redundant_filter.transform_documents(truncated_docs, query=query)
     filter_docs_list: List[Document] = list(filtered_docs)
 
     return filter_docs_list
