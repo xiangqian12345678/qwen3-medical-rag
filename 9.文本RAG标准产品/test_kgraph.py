@@ -76,7 +76,7 @@ class KGraphSearchTester:
             logger.info("✓ 图谱检索器创建成功")
 
             rag_config = RAGConfigLoader().config
-            power_model = create_llm_client(rag_config.llm_config)
+            power_model = create_llm_client(rag_config.llm)
             self.llm = power_model
 
             logger.info("✓ LLM初始化成功")

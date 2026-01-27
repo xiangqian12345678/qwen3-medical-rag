@@ -49,6 +49,7 @@ class SparseFieldConfig(BaseModel):
     index_field: str = ""
     index_type: Literal["SPARSE_INVERTED_INDEX"] = "SPARSE_INVERTED_INDEX"
     index_params: Dict[str, Any] = Field(default_factory=lambda: {"inverted_index_algo": "DAAT_MAXSCORE"})
+    search_params: Dict[str, Any] = Field(default_factory=lambda: {"ef": 64})
     metric_type: Literal["IP", "BM25"] = "IP"
 
 

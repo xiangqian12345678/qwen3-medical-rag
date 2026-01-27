@@ -4,21 +4,12 @@
 import logging
 import os
 import re
-import sys
 from pathlib import Path
 from typing import Any, Union
 
 import yaml
 
-# 添加当前目录到 Python 路径（支持直接运行）
-current_dir = Path(__file__).parent
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
-
-try:
-    from rag_config import RAGConfig
-except ImportError:
-    from .rag_config import RAGConfig
+from rag_config import RAGConfig
 
 logger = logging.getLogger(__name__)
 

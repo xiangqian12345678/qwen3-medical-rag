@@ -18,7 +18,7 @@ if str(project_dir) not in sys.path:
 from langchain_core.documents import Document
 
 from recall.search import create_web_search_tool, llm_network_search
-from recall.search.web_search import get_ws, reset_kb
+from recall.search.web_search import get_ws, reset_kb, WebSearchState
 
 # 配置日志
 logging.basicConfig(
@@ -53,7 +53,7 @@ class WebSearchTester:
 
             # 初始化LLM
             rag_config = RAGConfigLoader().config
-            power_model = create_llm_client(rag_config.llm_config)
+            power_model = create_llm_client(rag_config.llm)
             self.llm = power_model
             logger.info("✓ LLM初始化成功")
 
@@ -119,20 +119,15 @@ class WebSearchTester:
 
         try:
             # 模拟输入状态
-            test_state = {
+            test_state: WebSearchState = {
                 "query": "阿司匹林有哪些副作用？",
+                "other_messages": [],
                 "docs": [
                     Document(
                         page_content="阿司匹林是一种非甾体抗炎药，主要用于解热镇痛。",
                         metadata={"source": "medical_db_1"}
                     )
-                ],
-                "main_messages": [],
-                "other_messages": [],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
+                ]
             }
 
             logger.info(f"查询问题: {test_state['query']}")
@@ -181,18 +176,13 @@ class WebSearchTester:
             文档3: 感冒一般一周左右可自愈，无需特殊治疗。如症状加重或持续不退，应及时就医。
             """
 
-            test_state = {
+            test_state: WebSearchState = {
                 "query": test_query,
                 "docs": [
                     Document(page_content=doc, metadata={"source": f"doc_{i + 1}"})
                     for i, doc in enumerate(existing_docs.split("\n文档") if existing_docs else [])
                 ],
-                "main_messages": [],
                 "other_messages": [],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
             }
 
             logger.info(f"查询问题: {test_query}")
@@ -267,7 +257,7 @@ class WebSearchTester:
 
         try:
             # 模拟一个完整的RAG流程中的网络搜索环节
-            test_state = {
+            test_state:WebSearchState = {
                 "query": "最新的癌症治疗药物有哪些？",
                 "docs": [
                     Document(
@@ -279,12 +269,7 @@ class WebSearchTester:
                         metadata={"source": "medical_db_2"}
                     )
                 ],
-                "main_messages": [],
                 "other_messages": [],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
             }
 
             logger.info("场景: 用户询问最新的癌症治疗药物，但本地数据库只有基础信息")

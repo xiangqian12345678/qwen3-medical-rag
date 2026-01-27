@@ -106,6 +106,8 @@ sparse_fields:
     index_type: SPARSE_INVERTED_INDEX
     index_params:
       inverted_index_algo: DAAT_MAXSCORE
+    search_params:
+      ef: 64
     metric_type: IP
 
 # =============================================================================

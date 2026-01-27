@@ -3,6 +3,7 @@ from langchain_classic.output_parsers import OutputFixingParser
 
 """网络搜索模块"""
 import logging
+import json
 from typing import List
 from typing_extensions import TypedDict
 
@@ -25,6 +26,7 @@ class WebSearchState(TypedDict, total=False):
     query: str
     other_messages: List
     docs: List[Document]
+
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +120,9 @@ def llm_network_search(
 
         # 检查 LLM 是否决定调用搜索工具
         if _should_call_tool(search_ai):
-            # 执行工具调用
-            tool_msgs: ToolMessage = network_tool_node.invoke([search_ai])
-            state["other_messages"].append(tool_msgs)
+            # 执行工具调用，需要提供 config 参数
+            tool_msgs = network_tool_node.invoke([search_ai], config={"tools": [network_search_tool]})
+
 
             # 根据 remain_doc_index 处理已有文档
             remain_doc = result.remain_doc_index
@@ -186,7 +188,8 @@ def create_web_search_tool(
         """
         results: List[Document] = web_searcher.search(query, search_cnt)
         # 转换Document对象为字典列表
-        results_dict = [{"page_content": doc.page_content, "metadata": {"source":"web_search", "query":query}} for doc in results]
+        results_dict = [{"page_content": doc.page_content, "metadata": {"source": "web_search", "query": query}} for doc
+                        in results]
         return json.dumps(
             results_dict,
             ensure_ascii=False,
@@ -296,18 +299,15 @@ if __name__ == "__main__":
             from langchain_core.documents import Document
 
             # 模拟输入状态
-            test_state = {
+            test_state: WebSearchState = {
                 "query": "阿司匹林有哪些副作用？",
-                "docs": [
-                    Document(page_content="阿司匹林是一种非甾体抗炎药，主要用于解热镇痛。",
-                             metadata={"source": "medical_db_1"})
-                ],
-                "main_messages": [],
                 "other_messages": [],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
+                "docs": [
+                    Document(
+                        page_content="阿司匹林是一种非甾体抗炎药，主要用于解热镇痛。",
+                        metadata={"source": "medical_db_1"}
+                    )
+                ]
             }
 
             print(f"  查询问题: {test_state['query']}")

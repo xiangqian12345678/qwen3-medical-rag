@@ -144,7 +144,7 @@ def create_db_search_tool(
         for field_name, field_config in embed_config_loader.dense_fields.items():
             if field_config.embed:  # 只有启用了嵌入的字段才生成检索请求
                 request = SingleSearchRequest(
-                    anns_field=field_name,
+                    anns_field=field_config.index_field,
                     limit=50,
                     search_params=field_config.search_params or {"ef": 64},
                     metric_type=field_config.metric_type
@@ -155,7 +155,7 @@ def create_db_search_tool(
         for field_name, field_config in embed_config_loader.sparse_fields.items():
             if field_config.embed:  # 只有启用了嵌入的字段才生成检索请求
                 request = SingleSearchRequest(
-                    anns_field=field_name,
+                    anns_field=field_config.index_field,
                     limit=50,
                     search_params=field_config.search_params or {},
                     metric_type=field_config.metric_type
