@@ -326,11 +326,11 @@ def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, 
     if agent_config.sort_docs_cross_encoder_enabled:
         docs = sort_docs_cross_encoder(docs, reranker)
 
-    # 2.过滤重复文档
+    # 2.过滤重复文档 如果做了冗余过滤，逻辑上是没有必要了
     docs_set = set()
     new_docs = []
     for doc in docs:
-        if doc.metadata["pk"] not in docs_set:
+        if doc.metadata["id"] not in docs_set:
             new_docs.append(doc)
             docs_set.add(doc.metadata["id"])
 
