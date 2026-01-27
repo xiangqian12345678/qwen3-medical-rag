@@ -43,6 +43,14 @@ agent:
   sort_docs_cross_encoder_enabled: true
   sort_docs_by_loss_of_location_enabled: true
 
+#llm:
+#  provider: ollama
+#  api_key:
+#  base_url: http://localhost:11434
+#  model: qwen3:4b
+#  temperature: 0.1
+#  max_tokens: 2048
+
 
 llm:
   provider: dashscope
@@ -52,12 +60,25 @@ llm:
   temperature: 0.3
   max_tokens: 2048
 
+#embeddings:
+#  provider: ollama
+#  base_url: http://localhost:11434
+#  model: bge-m3
+#  dimension: 1024   # bge-m3 固定 1024
+#  normalize: true   # 强烈建议
+
 embedding:
   provider: dashscope
   model: text-embedding-v2
   api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
   base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
   dimension: 1536
+
+#reranker:
+#  provider: ollama
+#  model: dengcao/bge-reranker-v2-m3  # Ollama registry 可拉取的 reranker 模型
+#  api_key: ""                        # Ollama 本地默认可以为空，如果使用云服务可填
+#  base_url: "http://localhost:11434" # Ollama 本地服务默认端口
 
 reranker:
   provider: dashscope

@@ -34,7 +34,7 @@ class EmbeddingConfig(BaseModel):
 # =============================================================================
 class RerankerConfig(BaseModel):
     """Reranker配置"""
-    provider: Literal['dashscope'] = 'dashscope'
+    provider: Literal['dashscope','ollama'] = 'dashscope'
     model: str = "text-reranker-v2"
     base_url: Optional[str] = None
     api_key: Optional[str] = None

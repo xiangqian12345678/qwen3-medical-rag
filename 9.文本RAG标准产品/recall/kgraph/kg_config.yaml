@@ -9,11 +9,10 @@ neo4j:
   connection_timeout: 30.0
 
 #embedding:
-#  text_dense:
-#    provider: ollama
-#    model: nomic-embed-text
-#    api_key: null
-#    base_url: http://localhost:11434/v1
+#  provider: ollama
+#  model: nomic-embed-text
+#  api_key: null
+#  base_url: http://localhost:11434/v1
 
 embedding:
   provider: dashscope

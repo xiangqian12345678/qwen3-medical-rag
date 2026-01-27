@@ -103,20 +103,53 @@ def create_embedding_client(config: EmbeddingConfig) -> Embeddings:
 
 
 def create_reranker_client(config: RerankerConfig):
-    """创建Reranker客户端"""
+    """
+    创建 Reranker 客户端，支持 dashscope 和 ollama
+    """
     if config.provider == "dashscope":
-        from langchain_community.document_compressors.dashscope_rerank import DashScopeRerank
+        try:
+            from langchain_community.document_compressors.dashscope_rerank import DashScopeRerank
+        except ImportError as e:
+            raise ImportError("请安装 langchain-community 并包含 dashscope_rerank 模块") from e
 
-        kwargs = {
-            "model": config.model,
-        }
+        kwargs = {"model": config.model}
         if config.api_key:
             kwargs["dashscope_api_key"] = config.api_key
-        logger.info(f"创建 DashScope Reranker: {config.model}")
+        if config.base_url:
+            kwargs["base_url"] = config.base_url
+
+        logger.info(f"创建 DashScope Reranker: {config.model}, Base URL: {config.base_url}")
         return DashScopeRerank(**kwargs)
 
+    elif config.provider == "ollama":
+        try:
+            import requests
+        except ImportError:
+            raise ImportError("请安装 requests 库以支持 Ollama Reranker 调用")
+
+        class OllamaReranker:
+            """简单封装 Ollama rerank API"""
+
+            def __init__(self, model: str, base_url: str = "http://localhost:11434"):
+                self.model = model
+                self.base_url = base_url.rstrip("/")
+
+            def rerank(self, query: str, documents: list):
+                url = f"{self.base_url}/v1/rerank"
+                payload = {
+                    "model": self.model,
+                    "query": query,
+                    "documents": documents
+                }
+                resp = requests.post(url, json=payload)
+                resp.raise_for_status()
+                return resp.json()["results"]
+
+        logger.info(f"创建 Ollama Reranker: {config.model}, Base URL: {config.base_url}")
+        return OllamaReranker(model=config.model, base_url=config.base_url)
+
     else:
-        raise ValueError(f"不支持的Reranker提供商: {config.provider}")
+        raise ValueError(f"不支持的 Reranker 提供商: {config.provider}")
 
 
 def format_documents(documents) -> str:
@@ -198,3 +231,5 @@ def format_document_str(documents) -> str:
 def _should_call_tool(last_ai) -> bool:
     """判断是否需要调用工具"""
     return bool(getattr(last_ai, 'tool_calls', None))
+
+
