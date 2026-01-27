@@ -5,6 +5,7 @@
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 
 from rag_loader import RAGConfigLoader
@@ -36,7 +37,6 @@ class WebSearchTester:
         self.llm = None
         self.search_tool = None
         self.search_llm = None
-        self.tool_node = None
         self.search_cnt = 10
 
     def setup(self):
@@ -58,7 +58,7 @@ class WebSearchTester:
             logger.info("✓ LLM初始化成功")
 
             # 创建网络搜索工具
-            self.search_tool, self.search_llm, self.tool_node = create_web_search_tool(
+            self.search_tool, self.search_llm = create_web_search_tool(
                 search_cnt=self.search_cnt,
                 power_model=self.llm
             )
@@ -76,7 +76,7 @@ class WebSearchTester:
             traceback.print_exc()
             return False
 
-    def test_direct_web_search(self, query: str = "阿司匹林副作用"):
+    def test_direct_web_search(self, query: str = "人工智能在医疗领域的应用"):
         """测试1: 直接调用网络搜索工具"""
         logger.info("\n" + "=" * 60)
         logger.info("测试1: 直接网络搜索")
@@ -120,26 +120,18 @@ class WebSearchTester:
         try:
             # 模拟输入状态
             test_state: WebSearchState = {
-                "query": "阿司匹林有哪些副作用？",
+                "query": "人工智能在医疗领域的应用",
                 "other_messages": [],
-                "docs": [
-                    Document(
-                        page_content="阿司匹林是一种非甾体抗炎药，主要用于解热镇痛。",
-                        metadata={"source": "medical_db_1"}
-                    )
-                ]
+                "docs": []
             }
 
             logger.info(f"查询问题: {test_state['query']}")
-            logger.info(f"输入文档数: {len(test_state['docs'])}")
-            logger.info(f"输入文档内容: {test_state['docs'][0].page_content}")
 
             # 执行网络搜索节点
             result_state = llm_network_search(
                 state=test_state,
-                judge_llm=self.llm,
-                network_search_llm=self.search_llm,
-                network_tool_node=self.tool_node,
+                llm=self.search_llm,
+                search_tool=self.search_tool,
                 show_debug=True
             )
 
@@ -165,9 +157,6 @@ class WebSearchTester:
         logger.info("=" * 60)
 
         try:
-            from recall.search import get_prompt_template
-            from langchain_core.messages import HumanMessage, SystemMessage
-
             # 模拟已有充足文档的情况
             test_query = "普通感冒的治疗方法"
             existing_docs = """
@@ -187,13 +176,13 @@ class WebSearchTester:
 
             logger.info(f"查询问题: {test_query}")
             logger.info(f"已有文档数: {len(test_state['docs'])}")
+            logger.info(f"说明: 该测试展示LLM如何判断是否需要网络搜索")
 
             # 执行网络搜索节点
             result_state = llm_network_search(
                 state=test_state,
-                judge_llm=self.llm,
-                network_search_llm=self.search_llm,
-                network_tool_node=self.tool_node,
+                llm=self.search_llm,
+                search_tool=self.search_tool,
                 show_debug=True
             )
 
@@ -258,30 +247,20 @@ class WebSearchTester:
         try:
             # 模拟一个完整的RAG流程中的网络搜索环节
             test_state:WebSearchState = {
-                "query": "最新的癌症治疗药物有哪些？",
-                "docs": [
-                    Document(
-                        page_content="癌症治疗包括手术、放疗、化疗等多种方式。",
-                        metadata={"source": "medical_db_1"}
-                    ),
-                    Document(
-                        page_content="传统的化疗药物有很多副作用。",
-                        metadata={"source": "medical_db_2"}
-                    )
-                ],
+                "query": "人工智能在医疗领域的应用",
+                "docs": [],
                 "other_messages": [],
             }
 
-            logger.info("场景: 用户询问最新的癌症治疗药物，但本地数据库只有基础信息")
+            logger.info("场景: 用户询问最新的癌症治疗药物")
             logger.info(f"查询问题: {test_state['query']}")
             logger.info(f"已有文档数: {len(test_state['docs'])}")
 
             # 执行网络搜索节点
             result_state = llm_network_search(
                 state=test_state,
-                judge_llm=self.llm,
-                network_search_llm=self.search_llm,
-                network_tool_node=self.tool_node,
+                llm=self.search_llm,
+                search_tool=self.search_tool,
                 show_debug=True
             )
 
@@ -326,6 +305,12 @@ class WebSearchTester:
             "测试4-批量网络搜索": self.test_multi_web_search(),
             "测试5-完整工作流": self.test_complete_workflow()
         }
+
+        # 每次测试之间暂停5秒
+        test_names = list(results.keys())
+        for i in range(len(test_names) - 1):
+            logger.info(f"\n等待5秒后继续...")
+            time.sleep(5)
 
         # 输出测试结果汇总
         logger.info("\n" + "=" * 60)

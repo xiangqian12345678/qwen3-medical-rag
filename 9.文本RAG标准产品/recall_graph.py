@@ -70,17 +70,15 @@ class RecallGraph:
 
         # 2.创建网络搜索工具
         if app_config.agent_config.network_search_enabled:
-            web_tool, web_llm, web_node = create_web_search_tool(
+            web_tool, web_llm = create_web_search_tool(
                 search_cnt=app_config.agent_config.network_search_cnt,
                 power_model=llm
             )
             self.network_search_tool = web_tool
             self.network_search_llm = web_llm
-            self.network_tool_node = web_node
         else:
             self.network_search_tool = None
             self.network_search_llm = None
-            self.network_tool_node = None
 
         # 3.创建知识图谱搜索工具
         if app_config.agent_config.kgraph_search_enabled:
@@ -118,12 +116,11 @@ class RecallGraph:
         recall_graph.add_node("db_search", db_search_node_func)
 
         # 2.2 添加web_search节点
-        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             network_search_node_func = partial(
                 llm_network_search,
-                judge_llm=self.llm,
-                network_search_llm=self.network_search_llm,
-                network_tool_node=self.network_tool_node,
+                llm=self.network_search_llm,
+                search_tool=self.network_search_tool,
                 show_debug=self.appConfig.dialogue_config.console_debug
             )
             recall_graph.add_node("web_search", network_search_node_func)
@@ -166,7 +163,7 @@ class RecallGraph:
         last_node = "db_search"
 
         # 2.1.2 网络召回
-        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             recall_graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
@@ -211,7 +208,7 @@ class RecallGraph:
         docs.extend(db_docs)
 
         # 2. 调用网络检索
-        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             tool_result = self.network_search_tool.invoke(query)
             web_docs = json.loads(tool_result)
             docs.extend(web_docs)

@@ -10,11 +10,10 @@ from typing_extensions import TypedDict
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, SystemMessage, HumanMessage
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
 from .search_templates import get_prompt_template
@@ -43,114 +42,134 @@ class NetworkSearchResult(BaseModel):
 
 def llm_network_search(
         state: "WebSearchState",
-        judge_llm: BaseChatModel,
-        network_search_llm: BaseChatModel,
-        network_tool_node: ToolNode,
-        show_debug: bool
+        llm: BaseChatModel,
+        search_tool=None,
+        show_debug: bool = False
 ) -> "WebSearchState":
     """
-    联网检索节点
+    网络检索节点
 
     ========== 功能说明 ==========
     该节点负责：
-    1. 基于已有检索文档，判断是否需要联网搜索补充信息
-    2. 如果需要，生成搜索查询并执行网络检索
-    3. 根据判断结果，决定保留或替换已有的本地数据库文档
-    4. 将网络检索结果整合到文档列表中供后续RAG使用
+    1. 接收用户查询，让LLM判断是否需要调用网络搜索工具
+    2. 如果需要，执行网络检索并获取相关文档
+    3. 将检索到的文档添加到状态中供后续RAG使用
+
+    Args:
+        state: WebSearchState状态
+        llm: LLM实例
+        search_tool: 网络搜索工具实例
+        show_debug: 是否显示调试信息
     """
     print('-' * 60)
-    print("开始搜索检索")
+    print("开始网络检索")
     print('-' * 60)
 
+    query = state["query"]
+
     if show_debug:
-        logger.info(f"检查是否缺失资料需要网络搜索...")
+        logger.info(f"开始网络检索节点，查询: {query}")
 
-    # 创建 Pydantic 输出解析器
-    parser = PydanticOutputParser(pydantic_object=NetworkSearchResult)
-    fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=judge_llm)
-
-    # 获取格式指令，并将大括号转义
-    format_instructions = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
-
-    # 构建判断链的提示词模板
-    judge_messages = ChatPromptTemplate.from_messages([
-        ("system", get_prompt_template("web_router")["system"].format(format_instructions=format_instructions)),
-        ("human", get_prompt_template("web_router")["user"])
+    # 调用LLM，让其判断是否需要调用网络搜索工具
+    web_ai = llm.invoke([
+        SystemMessage(content=get_prompt_template("call_web")["system"]),
+        HumanMessage(content=get_prompt_template("call_web")["user"].format(search_query=query))
     ])
+    state["other_messages"].append(web_ai)
 
-    # 构建调用链的提示词模板
-    calling_messages = ChatPromptTemplate.from_messages([
-        ("system", get_prompt_template("call_web")["system"]),
-        ("human", get_prompt_template("call_web")["user"])
-    ])
+    if show_debug:
+        logger.info(f"LLM响应内容: {web_ai.content[:200]}")
+        logger.info(f"LLM响应是否有tool_calls: {hasattr(web_ai, 'tool_calls')}")
+        if hasattr(web_ai, 'tool_calls') and web_ai.tool_calls:
+            logger.info(f"Tool calls数量: {len(web_ai.tool_calls)}")
+            for i, tc in enumerate(web_ai.tool_calls):
+                logger.info(f"Tool call {i}: name={tc.get('name', 'N/A') if isinstance(tc, dict) else tc.name}, args={tc.get('args', {}) if isinstance(tc, dict) else tc.args}")
+                if hasattr(tc, 'id'):
+                    logger.info(f"  Tool call id: {tc.id}")
 
-    # 构建判断链
-    judge_chain = judge_messages | judge_llm | RunnableLambda(
-        lambda x: del_think(x.content)) | fixing_parser
-
-    try:
-        # 执行判断链
-        result: NetworkSearchResult = judge_chain.invoke({
-            "query": state['query'],
-            "docs": format_document_str(state.get('docs', []))
-        })
+    # 检查LLM是否决定调用工具
+    if _should_call_tool(web_ai):
         if show_debug:
-            logger.info(
-                f"判断结果: {'需要网络检索' if result.need_search else '不需要网络检索'}, 检索文本：{result.search_query}"
-            )
+            tool_calls = getattr(web_ai, 'tool_calls', None)
+            if tool_calls and len(tool_calls) > 0:
+                try:
+                    if hasattr(tool_calls[0], 'args'):
+                        args = tool_calls[0].args
+                    elif isinstance(tool_calls[0], dict):
+                        args = tool_calls[0].get('args', {})
+                    else:
+                        args = {}
+                    logger.info(f"开始网络检索，检索参数：{args}")
+                except Exception as e:
+                    logger.error(f"获取工具参数失败: {e}")
 
-        # 记录判断结果
-        judge_ai_content = f"分析结果: {result.model_dump()}"
-        judge_ai = AIMessage(content=judge_ai_content)
-        state["other_messages"].append(judge_ai)
+        try:
+            # 执行工具调用
+            if show_debug:
+                logger.info(f"准备调用工具，输入消息数: {len([web_ai])}")
 
-    except Exception as e:
-        # JSON 解析失败时，使用默认值
-        logger.error(f"JSON解析错误: {e}")
-        result = NetworkSearchResult(need_search=False, search_query="", remain_doc_index=[])
-        judge_ai = AIMessage(content=f"解析失败，使用默认值: {result.model_dump()}")
-        state["other_messages"].append(judge_ai)
-
-    # 如果需要联网搜索，且搜索词不为空
-    if result.need_search and result.search_query.strip():
-        # 执行网络检索链
-        search_chain = calling_messages | network_search_llm
-        search_ai = search_chain.invoke({"search_query": result.search_query})
-        state["other_messages"].append(search_ai)
-
-        # 检查 LLM 是否决定调用搜索工具
-        if _should_call_tool(search_ai):
-            # 执行工具调用，需要提供 config 参数
-            tool_msgs = network_tool_node.invoke([search_ai], config={"tools": [network_search_tool]})
-
-
-            # 根据 remain_doc_index 处理已有文档
-            remain_doc = result.remain_doc_index
-            if remain_doc:
-                valid_indices = [i - 1 for i in remain_doc if 0 < i <= len(state.get("docs", []))]
-                state["docs"] = [state["docs"][i] for i in valid_indices]
-            else:
-                state["docs"] = []
-
-            # 将网络检索结果转换为 Document 对象并添加到文档列表
+            # 直接调用工具（不使用 ToolNode，避免配置问题）
             try:
-                tool_content = tool_msgs[0].content
-                if tool_content and tool_content.strip():
-                    state["docs"].extend(json_to_list_document(tool_content))
-                    if show_debug:
-                        logger.info(f"网络检索完毕，获取到 {len(tool_msgs[0].content.split())} 条结果")
+                tool_calls = getattr(web_ai, 'tool_calls', [])
+                if tool_calls and len(tool_calls) > 0:
+                    tc = tool_calls[0]
+                    query = tc.get('args', {}).get('query') if isinstance(tc, dict) else (tc.args.get('query') if hasattr(tc, 'args') else None)
+                    if query:
+                        # 直接调用原始工具（使用传递的 search_tool 参数）
+                        if search_tool:
+                            tool_result = search_tool.invoke(query)
+                            tool_message = ToolMessage(
+                                content=tool_result,
+                                tool_call_id=tc.get('id') if isinstance(tc, dict) else (tc.id if hasattr(tc, 'id') else 'unknown'),
+                                name=tc.get('name') if isinstance(tc, dict) else (tc.name if hasattr(tc, 'name') else 'web_search')
+                            )
+                            tool_msgs = [tool_message]
+                            state["other_messages"].append(tool_message)
+                        else:
+                            logger.error("search_tool 未提供，无法执行工具调用")
+                            tool_msgs = []
+                    else:
+                        logger.error(f"无法从 tool_calls 中提取 query 参数")
+                        tool_msgs = []
                 else:
-                    if show_debug:
-                        logger.warning(f"网络检索结果为空，跳过添加文档")
+                    tool_msgs = []
             except Exception as e:
-                logger.error(
-                    f"解析网络检索结果失败: {e}, 工具内容: {tool_msgs[0].content[:200] if tool_msgs else 'No content'}")
-                if show_debug:
-                    logger.warning(f"网络检索结果解析失败，保留原有文档列表")
-    else:
-        # 不需要联网搜索
-        if show_debug:
-            logger.info(f"信息完整，无需网络搜索...")
+                logger.error(f"工具调用失败: {e}")
+                tool_msgs = []
+
+
+            # 检查工具返回内容
+            if tool_msgs and len(tool_msgs) > 0:
+                tool_content = tool_msgs[0].content
+            else:
+                tool_content = ""
+
+            if show_debug:
+                logger.info(f"工具返回内容长度: {len(tool_content)}")
+                if tool_content:
+                    logger.info(f"工具返回内容前200字符: {tool_content[:200]}")
+
+            # 如果返回空内容,跳过JSON解析
+            if not tool_content or not tool_content.strip():
+                logger.warning("工具返回空内容,跳过JSON解析")
+                return state
+
+            # 将ToolMessage中的JSON字符串转换为Document对象列表
+            new_docs = json_to_list_document(tool_content)
+            state["docs"].extend(new_docs)
+
+            if show_debug:
+                logger.info(f"检索到 {len(new_docs)} 条文档")
+                if len(state["docs"]) >= 2:
+                    logger.info(
+                        f"部分示例（共{len(state['docs'])}条）：\n\n{state['docs'][0].page_content[:200]}...\n\n{state['docs'][1].page_content[:200]}..."
+                    )
+                elif len(state["docs"]) == 1:
+                    logger.info(f"仅检索一条数据：\n\n{state['docs'][0].page_content[:200]}")
+                else:
+                    logger.warning("未检索到任何文档！")
+        except Exception as e:
+            logger.error(f"检索过程出错: {e}")
 
     return state
 
@@ -160,17 +179,17 @@ def create_web_search_tool(
         power_model: BaseChatModel = None
 ):
     """
-    创建网络搜索工具节点
+    创建网络搜索工具
 
     Args:
         search_cnt: 网络搜索返回结果数量
         power_model: LLM实例
 
     Returns:
-        tuple: (network_search_tool, network_search_llm, network_tool_node)
+        tuple: (web_search_tool, web_search_llm)
     """
     if power_model is None:
-        return None, None, None
+        return None, None
 
     # 提前获取 WebSearcher 实例
     web_searcher = get_ws()
@@ -178,29 +197,28 @@ def create_web_search_tool(
     @tool("web_search")
     def web_search(query: str) -> str:
         """
-        联网搜索工具
-
-        Args:
-            query: 搜索查询词
-
-        Returns:
-            检索结果的 JSON 字符串
+        使用网络搜索引擎进行检索
+        Args: query: 检索查询文本
+        Returns: 检索结果的JSON字符串
         """
         results: List[Document] = web_searcher.search(query, search_cnt)
         # 转换Document对象为字典列表
-        results_dict = [{"page_content": doc.page_content, "metadata": {"source": "web_search", "query": query}} for doc
-                        in results]
-        return json.dumps(
-            results_dict,
-            ensure_ascii=False,
-            indent=2,
-        )
+        results_dict = []
+        for doc in results:
+            results_dict.append({
+                "page_content": doc.page_content,
+                "metadata": doc.metadata
+            })
 
-    network_search_tool = web_search
-    network_search_llm = power_model.bind_tools([network_search_tool])
-    network_tool_node = ToolNode([network_search_tool])
+        json_str = json.dumps(results_dict, ensure_ascii=False)
+        logger.info(f"返回JSON字符串长度: {len(json_str)}")
 
-    return network_search_tool, network_search_llm, network_tool_node
+        return json_str
+
+    web_search_tool = web_search
+    web_search_llm = power_model.bind_tools([web_search_tool])
+
+    return web_search_tool, web_search_llm
 
 
 # =============================================================================
@@ -250,9 +268,10 @@ if __name__ == "__main__":
     # 2. 测试创建网络搜索工具
     print("\n[测试2] 创建网络搜索工具...")
     search_tool = None
+    search_llm = None
     try:
         # 创建网络搜索工具
-        search_tool, search_llm, tool_node = create_web_search_tool(
+        search_tool, search_llm = create_web_search_tool(
             search_cnt=network_search_cnt,
             power_model=llm
         )
@@ -313,18 +332,11 @@ if __name__ == "__main__":
             print(f"  查询问题: {test_state['query']}")
             print(f"  输入文档数: {len(test_state['docs'])}")
 
-            # 创建工具节点
-            _, search_llm, tool_node = create_web_search_tool(
-                search_cnt=network_search_cnt,
-                power_model=llm
-            )
-
             # 执行网络搜索节点
             result_state = llm_network_search(
                 state=test_state,
-                judge_llm=llm,
-                network_search_llm=search_llm,
-                network_tool_node=tool_node,
+                llm=search_llm,
+                search_tool=search_tool,
                 show_debug=True
             )
 

@@ -9,13 +9,12 @@ if str(project_dir) not in sys.path:
 
 # 尝试相对导入（当作为包导入时）
 from .web_search import llm_network_search, create_web_search_tool
-from .web_search import NetworkSearchResult
 from .search_templates import PROMPT_TEMPLATES
 from .search_templates import get_prompt_template
 from .search_templates import register_prompt_template
 
 
 __all__ = [
-    'llm_network_search', 'create_web_search_tool', 'NetworkSearchResult',
+    'llm_network_search', 'create_web_search_tool',
     'PROMPT_TEMPLATES', 'get_prompt_template'
 ]

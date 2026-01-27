@@ -246,17 +246,15 @@ class SearchGraph:
 
         # 创建网络搜索工具(如果未启动，均赋值为: None)
         if appConfig.agent_config.network_search_enabled:
-            web_tool, web_llm, web_node = create_web_search_tool(
+            web_tool, web_llm = create_web_search_tool(
                 search_cnt=appConfig.agent_config.network_search_cnt,
                 power_model=power_model
             )
             self.network_search_tool = web_tool
             self.network_search_llm = web_llm
-            self.network_tool_node = web_node
         else:
             self.network_search_tool = None
             self.network_search_llm = None
-            self.network_tool_node = None
 
         # 创建知识图谱检索工具
         # self.kgraphConfigLoader = KGraphConfigLoader()
@@ -288,12 +286,11 @@ class SearchGraph:
         graph.add_node("db_search", db_search_node_func)
 
         # 添加web_search节点
-        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             network_search_node_func = partial(
                 llm_network_search,
-                judge_llm=self.llm,
-                network_search_llm=self.network_search_llm,
-                network_tool_node=self.network_tool_node,
+                llm=self.network_search_llm,
+                search_tool=self.network_search_tool,
                 show_debug=self.appConfig.dialogue_config.console_debug
             )
             graph.add_node("web_search", network_search_node_func)
@@ -336,7 +333,7 @@ class SearchGraph:
         last_node = "db_search"
 
         # 2.1.2 网络召回
-        if self.appConfig.agent_config.network_search_enabled and self.network_tool_node is not None:
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             graph.add_edge("db_search", "web_search")
             last_node = "web_search"
 
