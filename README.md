@@ -179,3 +179,10 @@
    - 支持缓存机制，提高性能
    - 完善的错误处理
    - 详细的日志输出
+
+
+# 计算 hash_id（基于 chunk 内容的 MD5）
+hash_id = hashlib.md5(chunk.encode('utf-8')).hexdigest()
+# 构建 pk = hash_id前16位_chunk_id
+pk = f"{hash_id[:16]}_{chunk_id}"
+

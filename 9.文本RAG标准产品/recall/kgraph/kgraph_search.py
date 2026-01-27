@@ -2,6 +2,7 @@
 知识图谱检索模块
 参考milvus模块的实现，提供图谱检索工具
 """
+import hashlib
 import json
 import logging
 from typing import List
@@ -149,7 +150,18 @@ def create_kgraph_search_tool(
         vdb_results = results.get("vdb_results", [])
 
         # 转换为Document对象
-        results_dict = [{"page_content": doc, "metadata": {"source": "knowledge_graph", "query": query}} for doc in vdb_results]
+        results_dict = [
+            {
+                "page_content": doc,
+                "metadata": {
+                    "source": "knowledge_graph",
+                    "query": query,
+                    "id": hashlib.md5(doc.encode('utf-8')).hexdigest()
+                }
+            }
+            for doc in vdb_results
+        ]
+
         return json.dumps(results_dict, ensure_ascii=False)
 
     kgraph_search_tool = kgraph_search

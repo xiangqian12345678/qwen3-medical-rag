@@ -1,4 +1,5 @@
 """向量检索器 - 支持混合检索和向量融合"""
+import hashlib
 import logging
 from typing import Dict, Any, Optional, Union, List
 
@@ -110,10 +111,15 @@ class EmbedSearcher:
         documents = []
         for hit in results[0]:
             metadata = {k: v for k, v in hit.entity.items() if k != "chunk" and k != "summary"}
+            content = hit.entity.get("chunk") or hit.entity.get("summary") or ""
+            id = hashlib.md5(content.encode('utf-8')).hexdigest()
+
             metadata.update({"score": hit.score})
             metadata.update({"source": "milvus"})
             metadata.update({"query": req.query}) # 重排序用
-            content = hit.entity.get("chunk") or hit.entity.get("summary") or ""
+            metadata.update({"collection_name": collection_name})
+            metadata.update({"id": id})
+
             doc = Document(page_content=content, metadata=metadata)
             documents.append(doc)
 

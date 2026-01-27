@@ -1,4 +1,5 @@
 """数据库工厂类，用于创建和管理知识库实例"""
+import hashlib
 import json
 import logging
 from typing import Dict, Any, Optional, Union
@@ -43,6 +44,7 @@ class WebSearcher:
                         logger.warning(f"结果 {i} 内容为空,跳过")
                         continue
 
+                    id = hashlib.md5(hit["body"].encode('utf-8')).hexdigest()
                     docs.append(
                         Document(
                             page_content=hit["body"],
@@ -51,12 +53,13 @@ class WebSearcher:
                                 "url": hit.get("href", "N/A"),
                                 "rank": i,
                                 "source": "search",
-                                "query": query
-                            },
+                                "query": query,
+                                "id": id
+                            }
                         )
                     )
 
-                logger.info(f"成功解析 {len(docs)} 条文档")
+                    logger.info(f"成功解析 {len(docs)} 条文档")
 
         except Exception as e:
             logger.error(f"搜索失败: {e}")

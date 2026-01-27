@@ -330,7 +330,7 @@ def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, 
     docs_set = set()
     new_docs = []
     for doc in docs:
-        if doc.metadata["id"] not in docs_set:
+        if doc.metadata["pk"] not in docs_set:
             new_docs.append(doc)
             docs_set.add(doc.metadata["id"])
 
