@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import numpy as np
+from langchain_community.document_compressors import DashScopeRerank
 from langchain_community.document_transformers import LongContextReorder
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # 重排序
 # 1.重排序-基于cross-encoder的重排序
-def sort_docs_cross_encoder(docs: List[Document], reranker: CrossEncoder) -> List[Document]:
+def sort_docs_cross_encoder(docs: List[Document], reranker: DashScopeRerank) -> List[Document]:
     """
     重排序-基于cross-encoder的重排序
 
@@ -26,10 +27,16 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: CrossEncoder) -> Lis
         return []
 
     # 创建查询-文档对
-    pairs = [[doc.metadata["query"], doc.document.page_content] for doc in docs]
+    pairs = [{ "query": doc.metadata["query"], "doc": doc} for doc in docs]
 
     # 计算相关性分数
-    scores = reranker.predict(pairs)
+    scores = []
+    for pair in pairs:
+        results = reranker.compress_documents(
+            documents= [pair["doc"]],
+            query=pair["query"]
+        )
+        scores.append(results[0].score)
 
     # 按分数降序排序
     sorted_indices = np.argsort(scores)[::-1]

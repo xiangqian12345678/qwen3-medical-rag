@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from typing import List
 
+from langchain_community.document_compressors import DashScopeRerank
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
@@ -26,7 +27,7 @@ from recall_graph import RecallGraph
 
 class DialogueAgent:
     def __init__(self, app_config: APPConfig, embeddings_model: Embeddings, llm: BaseChatModel,
-                 reranker: CrossEncoder) -> None:
+                 reranker: DashScopeRerank) -> None:
         self.app_config = app_config
         self.agent_config = app_config.agent_config
         self.llm = llm
@@ -296,7 +297,7 @@ def _filter_by_similar(query: str, docs: List[Document], agent_config: AgentConf
     return docs
 
 
-def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: CrossEncoder) -> AgentState:
+def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: DashScopeRerank) -> AgentState:
     docs = []
     # 1.收集所有的文档
     if agent_config.generate_sub_queries_enabled:
@@ -319,7 +320,7 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
     return agent_state
 
 
-def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: CrossEncoder) -> List[
+def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: DashScopeRerank) -> List[
     Document]:
     # 1.基于模型重排序
     if agent_config.sort_docs_cross_encoder_enabled:
