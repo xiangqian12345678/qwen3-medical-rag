@@ -44,7 +44,8 @@ class DialogueAgent:
             asking_messages=[],
             background_info="",
             performance=[],
-            ask_obj=AskMess(need_ask=False, questions=[])
+            ask_obj=AskMess(need_ask=False, questions=[]),
+            multi_summary=[]
         )
 
         # 代理总图
