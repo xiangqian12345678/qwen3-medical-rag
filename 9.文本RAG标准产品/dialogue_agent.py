@@ -13,12 +13,12 @@ from sentence_transformers import CrossEncoder
 from answer.answer import generate_answer, AnswerState
 from app_config import APPConfig
 from enhance.agent_state import AgentState, AskMess
+from enhance.agent_state import RewriteQuery, SubQueries, MultiQueries, SuperordinateQuery, HypotheticalAnswer
 from enhance.filter_enhance import filter_low_correction_doc_embeddings, filter_low_correction_doc_llm, \
     filter_low_correction_content, filter_redundant_doc_embeddings
 from enhance.query_enhance import query_refine, generate_summary, query_rewrite
 from enhance.recall_enhance import generate_multi_queries, generate_superordinate_query, generate_hypothetical_answer, \
     generate_sub_queries
-from enhance.agent_state import RewriteQuery, SubQueries, MultiQueries, SuperordinateQuery, HypotheticalAnswer
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
 from rag_config import AgentConfig
 from recall_graph import RecallGraph
@@ -235,7 +235,8 @@ def _filter_enhance(agent_state: AgentState, agent_config: AgentConfig, embeddin
     if rewrite_query_docs and len(rewrite_query_docs) > 0:
         query = rewrite_query_docs[0].metadata["query"]
         new_rewrite_query_docs = _filter_by_similar(query=query, docs=rewrite_query_docs,
-                                                    agent_config=agent_config, llm=llm)
+                                                    agent_config=agent_config, embeddings_model=embeddings_model,
+                                                    llm=llm)
 
     new_multi_query_docs = []
     multi_query_docs = agent_state.get("multi_query_docs", [])
@@ -247,14 +248,16 @@ def _filter_enhance(agent_state: AgentState, agent_config: AgentConfig, embeddin
     if superordinate_query_docs and len(superordinate_query_docs) > 0:
         query = superordinate_query_docs[0].metadata["query"]
         new_superordinate_query_docs = _filter_by_similar(query=query, docs=superordinate_query_docs,
-                                                          agent_config=agent_config, llm=llm)
+                                                          agent_config=agent_config, embeddings_model=embeddings_model,
+                                                          llm=llm)
 
     new_hypothetical_answer_docs = []
     hypothetical_answer_docs = agent_state.get("hypothetical_answer_docs", [])
     if hypothetical_answer_docs and len(hypothetical_answer_docs) > 0:
         query = hypothetical_answer_docs[0].metadata["query"]
         new_hypothetical_answer_docs = _filter_by_similar(query=query, docs=hypothetical_answer_docs,
-                                                          agent_config=agent_config, llm=llm)
+                                                          agent_config=agent_config, embeddings_model=embeddings_model,
+                                                          llm=llm)
 
     agent_state["sub_query_results"] = new_sub_query_results
     agent_state["rewrite_query_docs"] = new_rewrite_query_docs

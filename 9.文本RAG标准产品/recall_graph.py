@@ -201,22 +201,26 @@ class RecallGraph:
         return out_state
 
     def search(self, query: str) -> List[Document]:
+        from recall.milvus.embed_utils import json_to_list_document
+        from recall.search.search_utils import json_to_list_document as web_json_to_list_document
+        from recall.kgraph.kg_utils import json_to_list_document as kg_json_to_list_document
+
         docs: List[Document] = []
         # 1. 调用数据库检索
         tool_result = self.db_search_tool.invoke({"query": query})
-        db_docs = json.loads(tool_result)
+        db_docs = json_to_list_document(tool_result)
         docs.extend(db_docs)
 
         # 2. 调用网络检索
         if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
             tool_result = self.network_search_tool.invoke(query)
-            web_docs = json.loads(tool_result)
+            web_docs = web_json_to_list_document(tool_result)
             docs.extend(web_docs)
 
         # 3. 调用知识图谱检索
         if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
             tool_result = self.kgraph_search_tool.invoke(query)
-            kg_docs = json.loads(tool_result)
+            kg_docs = kg_json_to_list_document(tool_result)
             docs.extend(kg_docs)
 
         return docs
