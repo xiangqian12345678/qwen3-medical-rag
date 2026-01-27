@@ -189,14 +189,14 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
 
         # 3.3 处理superordinate_query
         superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
-        if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.query):
-            docs: List[Document] = _run_one(superordinate_query.query)
+        if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
+            docs: List[Document] = _run_one(superordinate_query.superordinate_query)
             new_state["superordinate_query_docs"] = docs
 
         # 3.4 处理hypothetical_answer
         hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
-        if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.query):
-            docs: List[Document] = _run_one(hypothetical_answer.query)
+        if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
+            docs: List[Document] = _run_one(hypothetical_answer.hypothetical_answer)
             new_state["hypothetical_answer_docs"] = docs
 
         return new_state
