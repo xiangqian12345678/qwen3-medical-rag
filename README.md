@@ -53,6 +53,8 @@
         $ ollama serve  # 安装并启动 Ollama
         $ ollama pull bge-m3:latest      # 嵌入模型
         $ ollama pull qwen3:4b           # 对话模型，本机测试用一个小号大模型就可以了，真正上线可以采用微调后的领域大模型
+        $ ollama pull dengcao/bge-reranker-v2-m3
+
 
 ## 项目结构
 
@@ -135,9 +137,9 @@
     7.多轮对话agent 100%
         多个子问题的回答，应该通过大模型进行统一生成一个回答
         当前的检索和数据库查询是二选一，应该修改为并行查询
-    8.文本RAG标准产品 50%
+    8.文本RAG标准产品 60%
         全流程调试通过 100%
-        去除冗余代码
+        去除冗余代码   100%
         简化代码提升性能
         规范化项目
         完善功能：  支持ollama reranker,embedding,llm
