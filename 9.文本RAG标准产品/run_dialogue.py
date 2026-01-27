@@ -42,7 +42,7 @@ def main():
     print("=" * 50)
     print("输入 'exit' 或 'quit' 退出对话\n")
 
-    # user_input = "我这两天肚子痛，还拉肚子"
+    # user_input = "什么是房颤？"  会触发所有的召回
     try:
         while True:
             # 获取用户输入

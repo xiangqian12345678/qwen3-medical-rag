@@ -137,6 +137,7 @@ def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: 
     import os
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()
+    cpu_count = 1
 
     # 1.定义query检索函数
     def _run_one(single_query: str) -> List[Document]:

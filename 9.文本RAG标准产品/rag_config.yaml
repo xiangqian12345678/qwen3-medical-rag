@@ -7,11 +7,11 @@ agent:
 
   # 向量检索配置，无需配置，必须采用
   # 网络搜索配置
-  network_search_enabled: false
+  network_search_enabled: true
   network_search_cnt: 10
 
   # 知识图谱搜索配置
-  kgraph_search_enabled: false
+  kgraph_search_enabled: true
   kgraph_search_cnt: 10
 
   # query强化
