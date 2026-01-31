@@ -130,15 +130,6 @@ JUDGE_RAG_USER_PROMPT = """# 文档内容:
 # 模板注册表
 # =============================================================================
 PROMPT_TEMPLATES = {
-    "basic_rag": {  # 基础RAG问答模板: 基于文档回答用户问题
-        "system": BASIC_RAG_SYSTEM_PROMPT,
-        "user": BASIC_RAG_USER_PROMPT
-    },
-
-    "judge_rag": {  # RAG结果评判模板: 判断回答是否遵循事实
-        "system": JUDGE_RAG_SYSTEM_PROMPT,
-        "user": JUDGE_RAG_USER_PROMPT
-    },
 
     "ask_user": {  # 主动追问模板: 判断是否需要向用户追问关键信息
         "system": ASK_SYSTEM_PROMPT,

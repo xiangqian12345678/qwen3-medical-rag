@@ -1,5 +1,5 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
-from typing import List, Any, TYPE_CHECKING
+from typing import List, Any
 
 from langchain_core.documents import Document
 from langchain_core.messages import (

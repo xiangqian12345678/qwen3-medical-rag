@@ -6,7 +6,6 @@ import numpy as np
 from langchain_community.document_compressors import DashScopeRerank
 from langchain_community.document_transformers import LongContextReorder
 from langchain_core.documents import Document
-from sentence_transformers import CrossEncoder
 
 logger = logging.getLogger(__name__)
 

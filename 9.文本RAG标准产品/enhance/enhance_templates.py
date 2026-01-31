@@ -4,28 +4,6 @@ from typing import Dict, Union
 from langchain_core.prompts import PromptTemplate
 
 # =============================================================================
-# 基础RAG提示模板
-# =============================================================================
-BASIC_RAG_SYSTEM_PROMPT = """你是一名专业的医学知识助手，能够基于提供的医学资料准确回答用户问题。"""
-
-BASIC_RAG_USER_PROMPT = """
-# 要求
-1. 必须严格基于提供的参考资料回答问题
-2. 如果参考资料中没有相关信息，请明确说明"根据提供的资料无法回答此问题"
-3. 回答要专业、准确，同时通俗易懂，不需要长篇大论
-4. 不要编造或推测未在资料中提及的信息
-5. 如涉及具体诊疗建议，请提醒用户咨询专业医生
-
-# 参考资料
-{all_document_str}
-
-# 用户问题
-{input}
-
-请基于以上参考资料回答用户问题。如果资料不足以回答问题，请如实说明。
-"""
-
-# =============================================================================
 # 单轮主动问讯模板
 # =============================================================================
 ASK_SYSTEM_PROMPT = """
@@ -261,16 +239,6 @@ HYPOTHETICAL_ANSWER_USER_PROMPT = """
 # 模板注册表
 # =============================================================================
 PROMPT_TEMPLATES = {
-    "basic_rag": {  # 基础RAG问答模板: 基于文档回答用户问题
-        "system": BASIC_RAG_SYSTEM_PROMPT,
-        "user": BASIC_RAG_USER_PROMPT
-    },
-
-    "judge_rag": {  # RAG结果评判模板: 判断回答是否遵循事实
-        "system": JUDGE_RAG_SYSTEM_PROMPT,
-        "user": JUDGE_RAG_USER_PROMPT
-    },
-
     "ask_user": {  # 主动追问模板: 判断是否需要向用户追问关键信息
         "system": ASK_SYSTEM_PROMPT,
         "user": ASK_USER_PROMPT
@@ -310,7 +278,7 @@ PROMPT_TEMPLATES = {
 
 def get_prompt_template(template_name: str) -> Dict[str, str]:
     """获取提示模板"""
-    return PROMPT_TEMPLATES.get(template_name, PROMPT_TEMPLATES["basic_rag"])
+    return PROMPT_TEMPLATES.get(template_name, PROMPT_TEMPLATES["ask_user"])
 
 
 def register_prompt_template(name: str, template: Union[Dict[str, str], str]):
