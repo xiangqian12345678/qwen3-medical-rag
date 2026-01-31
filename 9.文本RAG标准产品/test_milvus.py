@@ -9,6 +9,7 @@ from pathlib import Path
 
 from rag_loader import RAGConfigLoader
 from enhance.utils import create_llm_client
+from utils import create_embedding_client
 
 # 添加项目路径
 project_dir = Path(__file__).parent
@@ -58,10 +59,14 @@ class MilvusSearchTester:
             self.llm = power_model
             logger.info("✓ LLM初始化成功")
 
+            # 初始化向量模型
+            embed_model = create_embedding_client(rag_config.embedding)
+
             # 创建数据库检索工具
             self.db_search_tool, self.db_search_llm, self.db_tool_node = create_db_search_tool(
                 embed_config_loader=self.embedConfigLoader,
-                power_model=self.llm
+                power_model=self.llm,
+                embed_model=embed_model
             )
             logger.info("✓ 数据库检索工具创建成功")
 

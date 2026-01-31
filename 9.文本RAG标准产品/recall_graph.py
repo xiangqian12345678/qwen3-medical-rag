@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
+from langchain_core.embeddings import Embeddings
 
 from app_config import APPConfig
 from recall.kgraph.kg_loader import KGraphConfigLoader
@@ -27,7 +28,7 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from enhance.utils import create_llm_client
+from utils import create_llm_client, create_embedding_client
 
 # 尝试相对导入（当作为包导入时）
 from recall.milvus import llm_db_search, create_db_search_tool
@@ -51,7 +52,7 @@ class RecallState(TypedDict, total=False):
 class RecallGraph:
     """搜索图：执行单个查询的RAG检索流程"""
 
-    def __init__(self, app_config: APPConfig, llm: BaseChatModel) -> None:
+    def __init__(self, app_config: APPConfig, llm: BaseChatModel, embed_model: Embeddings = None) -> None:
         """
         初始化搜索图
 
@@ -63,7 +64,7 @@ class RecallGraph:
         self.appConfig = app_config
 
         # 1.创建数据库检索工具
-        db_tool, db_llm, db_node = create_db_search_tool(app_config.milvus_config_loader, llm)
+        db_tool, db_llm, db_node = create_db_search_tool(app_config.milvus_config_loader, llm, embed_model = embed_model)
         self.db_search_tool = db_tool
         self.db_search_llm = db_llm
         self.db_tool_node = db_node
@@ -326,14 +327,15 @@ if __name__ == "__main__":
         logger.info(f"  - LLM: {rag_config.llm_config.model} ({rag_config.llm_config.provider})")
         logger.info(f"  - 网络搜索: {'启用' if rag_config.agent_config.network_search_enabled else '禁用'}")
 
-        # 2. 创建LLM客户端
-        logger.info("\n[2/5] 创建LLM客户端...")
+        # 2. 创建LLM客户端和向量嵌入客户端
+        logger.info("\n[2/5] 创建LLM客户端和向量嵌入客户端...")
         power_model = create_llm_client(rag_config.llm_config)
+        embed_model = create_embedding_client(rag_config.embed_config)
         logger.info(f"LLM客户端创建成功!")
 
         # 3. 初始化SearchGraph
         logger.info("\n[3/5] 初始化SearchGraph...")
-        search_graph = RecallGraph(app_config, llm=power_model)
+        search_graph = RecallGraph(app_config, llm=power_model, embed_model=power_model)
         search_graph.build_search_graph()
         logger.info("SearchGraph初始化成功!")
         logger.info(f"图结构: db_search -> web_search(可选) -> 图谱搜索(可选) -> rag -> judge(可选) -> finish")

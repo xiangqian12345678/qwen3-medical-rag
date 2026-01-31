@@ -2,6 +2,8 @@
 import json
 import logging
 from typing import List
+
+from langchain_core.embeddings import Embeddings
 from typing_extensions import TypedDict
 
 from langchain.tools import tool
@@ -112,7 +114,8 @@ def llm_db_search(
 
 def create_db_search_tool(
         embed_config_loader: EmbedConfigLoader,
-        power_model: BaseChatModel
+        power_model: BaseChatModel,
+        embed_model: Embeddings
 ):
     """
     创建数据库检索工具节点
@@ -120,6 +123,7 @@ def create_db_search_tool(
     Args:
         embed_config_loader: 应用配置
         power_model: LLM实例
+        embed_model: 嵌入模型实例
 
     Returns:
         tuple: (db_search_tool, db_search_llm, db_tool_node)
@@ -187,7 +191,6 @@ def create_db_search_tool(
 
         return requests
 
-
     @tool("database_search")
     def database_search(query: str) -> str:
         """
@@ -197,7 +200,7 @@ def create_db_search_tool(
         """
         try:
             from .embed_config import SearchRequest, FusionSpec
-            kb = get_kb(embed_config_loader.as_dict)
+            kb = get_kb(embed_config_loader.as_dict, embed_model=embed_model)
 
             # 动态生成检索请求
             search_requests = _create_requests(embed_config_loader)

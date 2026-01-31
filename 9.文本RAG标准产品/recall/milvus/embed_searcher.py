@@ -3,6 +3,7 @@ import hashlib
 import logging
 from typing import Dict, Any, Optional, Union, List
 
+from langchain_core.embeddings import Embeddings
 from pymilvus import connections, Collection, AnnSearchRequest, RRFRanker, WeightedRanker
 from langchain_core.documents import Document
 
@@ -11,7 +12,6 @@ from .embed_config import (
     DenseFieldConfig, SparseFieldConfig
 )
 from .embed_loader import EmbedConfigLoader
-from .embedding_client import create_embedding_client
 from .sparse_vectorizer import SparseVectorProcessor
 from .embed_vocab import Vocabulary
 
@@ -24,7 +24,8 @@ _kb_instance: Optional["EmbedSearcher"] = None
 class EmbedSearcher:
     """知识库检索器，封装向量数据库检索功能"""
 
-    def __init__(self, embedConfig: Union[EmbedConfigLoader, Dict[str, Any], EmbedConfig]):
+    def __init__(self, embedConfig: Union[EmbedConfigLoader, Dict[str, Any], EmbedConfig],
+                 embed_model: Embeddings = None):
         """
         初始化知识库
 
@@ -60,8 +61,8 @@ class EmbedSearcher:
         self.collection = Collection(self.collection_name)
         logger.info(f"加载集合: {self.collection_name}")
 
-        # 初始化向量处理器
-        self.field_processor = VectorFieldProcessor(self.embedConfig)
+        # 初始化向量处理器  00000
+        self.field_processor = VectorFieldProcessor(self.embedConfig, embed_model=embed_model)
 
     def search(self, req: SearchRequest) -> List[Document]:
         """
@@ -116,7 +117,7 @@ class EmbedSearcher:
 
             metadata.update({"score": hit.score})
             metadata.update({"source": "milvus"})
-            metadata.update({"query": req.query}) # 重排序用
+            metadata.update({"query": req.query})  # 重排序用
             metadata.update({"collection_name": collection_name})
             metadata.update({"id": id})
 
@@ -208,7 +209,7 @@ class EmbedSearcher:
 class VectorFieldProcessor:
     """向量字段处理器 - 处理稠密和稀疏向量"""
 
-    def __init__(self, config: EmbedConfig):
+    def __init__(self, config: EmbedConfig, embed_model: Embeddings = None):
         """初始化向量字段处理器
 
         Args:
@@ -223,7 +224,8 @@ class VectorFieldProcessor:
         # 初始化稠密向量嵌入器
         for field_name, field_config in config.dense_fields.items():
             if field_config.embed:
-                self.dense_embedders[field_name] = create_embedding_client(field_config)
+                # self.dense_embedders[field_name] = create_embedding_client(field_config)
+                self.dense_embedders[field_name] = embed_model
 
         # 初始化稀疏向量处理器（BM25）
         for field_name, field_config in config.sparse_fields.items():
@@ -267,7 +269,8 @@ class VectorFieldProcessor:
         return self.sparse_processor.build_sparse_vector(text, avgdl)
 
 
-def get_kb(config: Dict[str, Any] = None) -> EmbedSearcher:
+# 0000
+def get_kb(config: Dict[str, Any] = None, embed_model: Embeddings = None) -> EmbedSearcher:
     """
     获取知识库实例（单例模式）
 
@@ -282,8 +285,7 @@ def get_kb(config: Dict[str, Any] = None) -> EmbedSearcher:
     if _kb_instance is None:
         if config is None:
             raise ValueError("首次调用必须传入config参数")
-
-        _kb_instance = EmbedSearcher(config)
+        _kb_instance = EmbedSearcher(config, embed_model=embed_model)
 
     return _kb_instance
 
