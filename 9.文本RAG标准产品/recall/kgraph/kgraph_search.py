@@ -6,6 +6,8 @@ import hashlib
 import json
 import logging
 from typing import List
+
+from langchain_core.embeddings import Embeddings
 from typing_extensions import TypedDict
 
 from langchain.tools import tool
@@ -103,7 +105,8 @@ def llm_kgraph_search(
 
 def create_kgraph_search_tool(
         kgraph_config_loader: KGraphConfigLoader,
-        power_model: BaseChatModel
+        power_model: BaseChatModel,
+        embed_model: Embeddings
 ):
     """
     创建知识图谱检索工具节点
@@ -111,6 +114,7 @@ def create_kgraph_search_tool(
     Args:
         kgraph_config_loader: 图谱配置加载器
         power_model: LLM实例
+        embed_model: 嵌入模型
 
     Returns:
         tuple: (kgraph_search_tool, kgraph_search_llm, kgraph_tool_node)
@@ -132,7 +136,7 @@ def create_kgraph_search_tool(
         "api_key": kgraph_config_loader.get("embedding.api_key", None),
         "base_url": kgraph_config_loader.get("embedding.base_url", "http://localhost:11434/v1")
     }
-    graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
+    graph_searcher = GraphSearcher(neo4j_conn, database=kgraph_config_loader.neo4j_config.database, embed_model=embed_model)
 
     @tool("kgraph_search")
     def kgraph_search(query: str) -> str:
@@ -169,127 +173,3 @@ def create_kgraph_search_tool(
     kgraph_tool_node = ToolNode([kgraph_search_tool])
 
     return kgraph_search_tool, kgraph_search_llm, kgraph_tool_node
-
-
-# 使用示例
-if __name__ == "__main__":
-
-    # 配置日志
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    print("=" * 60)
-    print("知识图谱检索示例")
-    print("=" * 60)
-
-    try:
-        # 加载配置
-        from kg_loader import KGraphConfigLoader
-
-        config = KGraphConfigLoader()
-
-        print(f"\n📊 配置信息:")
-        print(f"   Neo4j URI: {config.neo4j_config.uri}")
-        print(f"   数据库: {config.neo4j_config.database}")
-
-        # 创建Neo4j连接
-        print(f"\n🔌 连接Neo4j数据库...")
-        neo4j_conn = Neo4jConnection(config)
-        connected = neo4j_conn.connect()
-
-        if not connected:
-            print(f"❌ Neo4j连接失败: {neo4j_conn.uri}")
-            print("   请确保Neo4j服务已启动，并检查配置文件中的连接信息")
-            exit(1)
-
-        print(f"✅ Neo4j连接成功")
-
-        # 创建图谱检索器
-        embedding_config = {
-            "provider": config.get("embedding.provider", "ollama"),
-            "model": config.get("embedding.model", "nomic-embed-text"),
-            "api_key": config.get("embedding.api_key", None),
-            "base_url": config.get("embedding.base_url", "http://localhost:11434/v1")
-        }
-        graph_searcher = GraphSearcher(neo4j_conn, embedding_config=embedding_config)
-
-        # 示例1: query检索
-        print(f"\n" + "=" * 60)
-        print("示例1: 关键词检索")
-        print("=" * 60)
-        keyword = "房颤的治疗目的是什么？"
-        print(f"搜索关键词: '{keyword}'")
-        dict = graph_searcher.search_graph_by_query(keyword, top_k=5)
-        content = dict.get("content", "")
-        print(f"  content: {content}")
-
-        # 示例2: 关系检索
-        print(f"\n" + "=" * 60)
-        print("示例2: 关系检索")
-        print("=" * 60)
-        entity_name = "阿司匹林"
-        print(f"查询实体: '{entity_name}' 的关系")
-        docs = graph_searcher.search_by_relation(entity_name, limit=5)
-        print(f"✅ 找到 {len(docs)} 条关系:")
-        for i, doc in enumerate(docs, 1):
-            print(f"   {i}. {doc.page_content}")
-
-        # 示例3: 关键词检索
-        print(f"\n" + "=" * 60)
-        print("示例3: 综合图谱检索")
-        print("=" * 60)
-        keyword = "糖尿病"
-        print(f"综合检索关键词: '{keyword}'")
-        result = graph_searcher.search_by_keyword(keyword, limit=10)
-        print(f"✅ 找到 {len(result)} 条结果（实体）:")
-        for i, doc in enumerate(result, 1):
-            print(f"   {i}. {doc.page_content}")
-
-        # 示例4: 测试检索工具
-        print(f"\n" + "=" * 60)
-        print("示例4: 创建检索工具并调用")
-        print("=" * 60)
-
-        # 初始化LLM
-        from langchain_openai import ChatOpenAI
-
-        llm = ChatOpenAI(
-            model=config.llm_config.model,
-            temperature=config.llm_config.temperature,
-            base_url=config.llm_config.base_url,
-            api_key=config.llm_config.api_key or "dummy-key"
-        )
-
-        # 创建检索工具
-        kgraph_tool, kgraph_llm, kgraph_tool_node = create_kgraph_search_tool(config, llm)
-
-        if kgraph_tool is None:
-            print("⚠️  图谱检索工具未启用")
-        else:
-            print(f"✅ 图谱检索工具创建成功")
-            print(f"   工具名称: {kgraph_tool.name}")
-            print(f"   工具描述: {kgraph_tool.description}")
-
-            # 执行工具调用
-            print(f"\n🔍 使用工具搜索: '高血压'")
-            from langchain_core.messages import HumanMessage
-
-            result = kgraph_tool.invoke({"query": "高血压"})
-            print(f"✅ 检索结果（前500字符）:")
-            print(f"   {str(result)[:500]}...")
-
-        # 关闭连接
-        neo4j_conn.close()
-        print(f"\n✅ 连接已关闭")
-
-        print(f"\n" + "=" * 60)
-        print("图谱检索示例完成")
-        print("=" * 60)
-
-    except ImportError as e:
-        print(f"❌ 导入模块失败: {e}")
-        print("   请确保已安装所需依赖: pip install -r requirements.txt")
-    except Exception as e:
-        print(f"❌ 执行出错: {e}")
-        import traceback
-
-        traceback.print_exc()

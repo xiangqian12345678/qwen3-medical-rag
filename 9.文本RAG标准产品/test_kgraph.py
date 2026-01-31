@@ -8,6 +8,7 @@ from pathlib import Path
 
 from rag_loader import RAGConfigLoader
 from enhance.utils import create_llm_client
+from utils import create_embedding_client
 
 # 添加项目路径
 project_dir = Path(__file__).parent
@@ -34,6 +35,7 @@ class KGraphSearchTester:
 
     def __init__(self):
         """初始化测试环境"""
+        self.embed_model = None
         self.kgraphConfigLoader = None
         self.neo4j_conn = None
         self.graph_searcher = None
@@ -65,14 +67,18 @@ class KGraphSearchTester:
 
             logger.info("✓ Neo4j连接成功")
 
-            # 创建图谱检索器
-            embedding_config = {
-                "provider": self.kgraphConfigLoader.get("embedding.provider", "ollama"),
-                "model": self.kgraphConfigLoader.get("embedding.model", "nomic-embed-text"),
-                "api_key": self.kgraphConfigLoader.get("embedding.api_key", None),
-                "base_url": self.kgraphConfigLoader.get("embedding.base_url", "http://localhost:11434/v1")
-            }
-            self.graph_searcher = GraphSearcher(self.neo4j_conn, embedding_config=embedding_config)
+            # 创建向量模型
+            rag_config = RAGConfigLoader().config
+            self.embed_model = create_embedding_client(rag_config.embedding)
+
+            # # 创建图谱检索器
+            # embedding_config = {
+            #     "provider": self.kgraphConfigLoader.get("embedding.provider", "ollama"),
+            #     "model": self.kgraphConfigLoader.get("embedding.model", "nomic-embed-text"),
+            #     "api_key": self.kgraphConfigLoader.get("embedding.api_key", None),
+            #     "base_url": self.kgraphConfigLoader.get("embedding.base_url", "http://localhost:11434/v1")
+            # }
+            self.graph_searcher = GraphSearcher(self.neo4j_conn, database=self.kgraphConfigLoader.neo4j_config.database, embed_model=self.embed_model)
             logger.info("✓ 图谱检索器创建成功")
 
             rag_config = RAGConfigLoader().config
@@ -83,7 +89,7 @@ class KGraphSearchTester:
 
             # 创建检索工具
             self.kgraph_tool, self.kgraph_llm, self.kgraph_tool_node = create_kgraph_search_tool(
-                self.kgraphConfigLoader, power_model
+                self.kgraphConfigLoader, power_model,self.embed_model
             )
 
             if self.kgraph_tool is None:

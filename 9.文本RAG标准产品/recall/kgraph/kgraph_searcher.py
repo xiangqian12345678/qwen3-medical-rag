@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 import numpy as np
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from sklearn.metrics.pairwise import cosine_similarity
 
 from .kgraph_schema import kg_schema
@@ -27,14 +28,14 @@ class GraphSearcher:
     提供基于向量相似度和关键词的图谱检索功能，将查询结果转换为Document对象
     """
 
-    def __init__(self, connection: Neo4jConnection, database: str = None, embedding_config=None):
+    def __init__(self, connection: Neo4jConnection, database: str, embed_model: Embeddings):
         """
         初始化图谱检索器
 
         Args:
             connection: Neo4j连接对象
             database: 数据库名称（可选）
-            embedding_config: 嵌入模型配置
+            embed_model: 向量模型对象
         """
         connected = connection.connect()
         if not connected:
@@ -50,14 +51,14 @@ class GraphSearcher:
             self.driver = None
 
         # 初始化向量检索
-        self.embedding_config = embedding_config
+        # self.embedding_config = embedding_config
         self.entity_index = {
             "ids": [],
             "names": [],
             "types": [],
             "embeddings": np.empty((0, 1536))  # 默认维度
         }
-        self.embedding_client = None
+        self.embedding_client = embed_model
 
         # 加载向量索引
         self._load_vector_index()
@@ -68,36 +69,7 @@ class GraphSearcher:
             logger.warning("Neo4j驱动未连接，无法加载向量索引")
             return
 
-        if not self.embedding_config:
-            logger.warning("未配置嵌入模型，无法加载向量索引")
-            return
-
         try:
-            from langchain_openai import OpenAIEmbeddings
-            from langchain_ollama import OllamaEmbeddings
-            from langchain_community.embeddings import DashScopeEmbeddings
-
-            # 创建嵌入客户端
-            if self.embedding_config.get("provider") == "openai":
-                self.embedding_client = OpenAIEmbeddings(
-                    model=self.embedding_config.get("model"),
-                    api_key=self.embedding_config.get("api_key"),
-                    base_url=self.embedding_config.get("base_url")
-                )
-            elif self.embedding_config.get("provider") == "ollama":
-                self.embedding_client = OllamaEmbeddings(
-                    model=self.embedding_config.get("model"),
-                    base_url=self.embedding_config.get("base_url")
-                )
-            elif self.embedding_config.get("provider") == "dashscope":
-                self.embedding_client = DashScopeEmbeddings(
-                    model=self.embedding_config.get("model"),
-                    dashscope_api_key=self.embedding_config.get("api_key")
-                )
-            else:
-                logger.warning(f"不支持的嵌入提供商: {self.embedding_config.get('provider')}")
-                return
-
             with self.driver.session(database=self.database) as session:
                 # 加载实体嵌入
                 result = session.run(

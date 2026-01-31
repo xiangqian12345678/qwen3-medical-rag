@@ -83,7 +83,7 @@ class RecallGraph:
 
         # 3.创建知识图谱搜索工具
         if app_config.agent_config.kgraph_search_enabled:
-            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader, llm)
+            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader, llm, embed_model = embed_model)
             self.kgraph_search_tool = kgraph_tool
             self.kgraph_search_llm = kgraph_llm
             self.kgraph_tool_node = kgraph_node

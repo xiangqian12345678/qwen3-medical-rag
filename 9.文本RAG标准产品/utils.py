@@ -115,10 +115,8 @@ def create_reranker_client(config: RerankerConfig):
         kwargs = {"model": config.model}
         if config.api_key:
             kwargs["dashscope_api_key"] = config.api_key
-        if config.base_url:
-            kwargs["base_url"] = config.base_url
 
-        logger.info(f"创建 DashScope Reranker: {config.model}, Base URL: {config.base_url}")
+        logger.info(f"创建 DashScope Reranker: {config.model}")
         return DashScopeRerank(**kwargs)
 
     elif config.provider == "ollama":
