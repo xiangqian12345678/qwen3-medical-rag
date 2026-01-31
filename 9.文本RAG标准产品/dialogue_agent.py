@@ -21,7 +21,7 @@ from enhance.recall_enhance import generate_multi_queries, generate_superordinat
     generate_sub_queries
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
 from rag.rag_config import AgentConfig
-from recall_graph import RecallGraph
+from integrated_recall import IntegratedRecall
 
 
 class DialogueAgent:
@@ -32,7 +32,7 @@ class DialogueAgent:
         self.llm = llm
         self.embeddings_model = embeddings_model
         self.reranker = reranker
-        self.recall_graph = RecallGraph(app_config, llm, embed_model=embeddings_model)
+        self.recall_graph = IntegratedRecall(app_config, llm, embed_model=embeddings_model)
 
         # 对话状态
         self.agent_state = AgentState(
@@ -134,7 +134,7 @@ def _recall_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: Bas
     return agent_state
 
 
-def _recall(agent_state: AgentState, recall_graph: "RecallGraph", agent_config: AgentConfig) -> AgentState:
+def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
     import os
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()

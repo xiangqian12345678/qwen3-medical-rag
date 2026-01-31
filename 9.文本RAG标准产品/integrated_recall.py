@@ -30,7 +30,7 @@ class RecallState(TypedDict, total=False):
 # =============================================================================
 # 搜索工具
 # =============================================================================
-class RecallGraph:
+class IntegratedRecall:
     """搜索图：执行单个查询的RAG检索流程"""
 
     def __init__(self, app_config: APPConfig, llm: BaseChatModel, embed_model: Embeddings = None) -> None:
