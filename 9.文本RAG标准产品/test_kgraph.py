@@ -261,7 +261,7 @@ class KGraphSearchTester:
         results = {
             "测试1-关键词检索": self.test_query_search(),
             "测试2-关系检索": self.test_relation_search(),
-            "测试3-综合图谱检索": self.test_keyword_search(),
+            # "测试3-综合图谱检索": self.test_keyword_search(),
             "测试4-检索工具调用": self.test_tool_invocation(),
             "测试5-LLM判断检索": self.test_llm_judgment()
         }

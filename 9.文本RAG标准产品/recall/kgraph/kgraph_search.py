@@ -5,31 +5,28 @@
 import hashlib
 import json
 import logging
-from typing import List
+from typing import List, Optional
 
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_core.tools import Tool
-from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
 from .kg_loader import KGraphConfigLoader
-from .kg_templates import get_prompt_template
-from .kg_utils import json_to_list_document, _should_call_tool
+from .kg_utils import json_to_list_document
 from .kgraph_searcher import GraphSearcher
 from .neo4j_connection import Neo4jConnection
+
+logger = logging.getLogger(__name__)
+_gs_instance: Optional["GraphSearcher"] = None
 
 
 class KGraphRecallState(TypedDict, total=False):
     query: str
     other_messages: List
     docs: List[Document]
-
-
-logger = logging.getLogger(__name__)
 
 
 def kgraph_search(
@@ -85,77 +82,6 @@ def kgraph_search(
     return state
 
 
-def llm_kgraph_search(
-        state: "KGraphRecallState",
-        llm: BaseChatModel,
-        kgraph_tool_node: ToolNode,
-        show_debug: bool
-) -> "KGraphRecallState":
-    """
-    知识图谱检索节点
-
-    ========== 功能说明 ==========
-    该节点负责：
-    1. 接收用户查询，让LLM判断是否需要调用知识图谱检索工具
-    2. 如果需要，执行图谱检索并获取相关实体和关系
-    3. 将检索到的实体/关系转换为Document对象添加到状态中供后续RAG使用
-    """
-    logging.info('-' * 60)
-    logging.info("开始图谱检索")
-    logging.info('-' * 60)
-    query = state["query"]
-
-    if show_debug:
-        logger.info(f"开始图谱检索节点，查询: {query}")
-
-    # 调用LLM，让其判断是否需要调用图谱检索工具
-    kg_ai = llm.invoke([
-        SystemMessage(content=get_prompt_template("call_kgraph")["system"]),
-        HumanMessage(content=get_prompt_template("call_kgraph")["user"].format(query=query))
-    ])
-    state["other_messages"].append(kg_ai)
-
-    # 检查LLM是否决定调用工具
-    if _should_call_tool(kg_ai):
-        if show_debug:
-            tool_calls = getattr(kg_ai, 'tool_calls', None)
-            if tool_calls and len(tool_calls) > 0:
-                try:
-                    if hasattr(tool_calls[0], 'args'):
-                        args = tool_calls[0].args
-                    elif isinstance(tool_calls[0], dict):
-                        args = tool_calls[0].get('args', {})
-                    else:
-                        args = {}
-                    logger.info(f"开始图谱检索，检索参数：{args}")
-                except Exception as e:
-                    logger.error(f"获取工具参数失败: {e}")
-
-        try:
-            # 执行工具调用
-            tool_msgs: ToolMessage = kgraph_tool_node.invoke([kg_ai])
-            state["other_messages"].append(tool_msgs)
-
-            # 将ToolMessage中的JSON字符串转换为Document对象列表
-            new_docs = json_to_list_document(tool_msgs[0].content)
-            state["docs"].extend(new_docs)
-
-            if show_debug:
-                logger.info(f"图谱检索到 {len(new_docs)} 条文档")
-                if len(state["docs"]) >= 2:
-                    logger.info(
-                        f"部分示例（共{len(state['docs'])}条）：\n\n{state['docs'][0].page_content[:200]}...\n\n{state['docs'][1].page_content[:200]}..."
-                    )
-                elif len(state["docs"]) == 1:
-                    logger.info(f"仅检索一条数据：\n\n{state['docs'][0].page_content[:200]}")
-                else:
-                    logger.warning("未检索到任何图谱信息！")
-        except Exception as e:
-            logger.error(f"图谱检索过程出错: {e}")
-
-    return state
-
-
 def create_kgraph_search_tool(
         kgraph_config_loader: KGraphConfigLoader,
         power_model: BaseChatModel,
@@ -181,16 +107,8 @@ def create_kgraph_search_tool(
         logger.warning(f"Neo4j连接失败: {neo4j_conn.uri}")
         return None, None, None
 
-    # 创建图谱检索器（传入嵌入配置以支持向量检索）
-    # 使用 text_dense 配置作为嵌入模型
-    embedding_config = {
-        "provider": kgraph_config_loader.get("embedding.provider", "ollama"),
-        "model": kgraph_config_loader.get("embedding.model", "nomic-embed-text"),
-        "api_key": kgraph_config_loader.get("embedding.api_key", None),
-        "base_url": kgraph_config_loader.get("embedding.base_url", "http://localhost:11434/v1")
-    }
-    graph_searcher = GraphSearcher(neo4j_conn, database=kgraph_config_loader.neo4j_config.database,
-                                   embed_model=embed_model)
+    graph_searcher = get_graph_searcher(neo4j_conn, database=kgraph_config_loader.neo4j_config.database,
+                                        embed_model=embed_model)
 
     @tool("kgraph_search")
     def kgraph_search(query: str) -> str:
@@ -226,3 +144,11 @@ def create_kgraph_search_tool(
     kgraph_search_llm = power_model.bind_tools([kgraph_search_tool])
 
     return kgraph_search_tool, kgraph_search_llm
+
+
+def get_graph_searcher(neo4j_conn: Neo4jConnection, database: str, embed_model: Embeddings) -> "GraphSearcher":
+    global _gs_instance
+    if _gs_instance is None:
+        graph_searcher = GraphSearcher(neo4j_conn, database=database, embed_model=embed_model)
+        _gs_instance = graph_searcher
+    return _gs_instance

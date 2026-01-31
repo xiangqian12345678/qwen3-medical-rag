@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_gs_instance: Optional["GraphSearcher"] = None
 
 
 class GraphSearcher:
@@ -117,54 +116,54 @@ class GraphSearcher:
         except Exception as e:
             logger.error(f"加载向量索引失败: {e}")
 
-    def search_by_vector(self, query_text: str, threshold: float = 0.5, top_k: int = 5) -> List[Document]:
-        """
-        基于向量相似度搜索实体
-
-        Args:
-            query_text: 查询文本
-            threshold: 相似度阈值
-            top_k: 返回结果数量限制
-
-        Returns:
-            Document对象列表
-        """
-        if not self.embedding_client or len(self.entity_index["embeddings"]) == 0:
-            logger.warning("向量检索不可用，回退到关键词检索")
-            return self.search_by_keyword(query_text, top_k)
-
-        try:
-            # 生成查询嵌入
-            query_embedding = self.embedding_client.embed_query(query_text)
-            query_vector = np.array(query_embedding).reshape(1, -1)
-
-            # 计算相似度
-            similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
-
-            documents = []
-            for idx, sim in enumerate(similarities):
-                if sim >= threshold:
-                    content = f"{self.entity_index['types'][idx]}: {self.entity_index['names'][idx]}"
-                    metadata = {
-                        "node_id": self.entity_index["ids"][idx],
-                        "entity_name": self.entity_index["names"][idx],
-                        "entity_type": self.entity_index["types"][idx],
-                        "similarity": float(sim),
-                        "source": "knowledge_graph",
-                        "query": query_text
-                    }
-
-                    documents.append(Document(page_content=content, metadata=metadata))
-
-            # 排序并截取top_k
-            documents.sort(key=lambda x: x.metadata.get("similarity", 0), reverse=True)
-            logger.info(f"向量检索找到 {len(documents[:top_k])} 个相似实体")
-
-            return documents[:top_k]
-
-        except Exception as e:
-            logger.error(f"向量检索失败: {e}")
-            return []
+    # def search_by_vector(self, query_text: str, threshold: float = 0.5, top_k: int = 5) -> List[Document]:
+    #     """
+    #     基于向量相似度搜索实体
+    #
+    #     Args:
+    #         query_text: 查询文本
+    #         threshold: 相似度阈值
+    #         top_k: 返回结果数量限制
+    #
+    #     Returns:
+    #         Document对象列表
+    #     """
+    #     if not self.embedding_client or len(self.entity_index["embeddings"]) == 0:
+    #         logger.warning("向量检索不可用，回退到关键词检索")
+    #         return self.search_by_keyword(query_text, top_k)
+    #
+    #     try:
+    #         # 生成查询嵌入
+    #         query_embedding = self.embedding_client.embed_query(query_text)
+    #         query_vector = np.array(query_embedding).reshape(1, -1)
+    #
+    #         # 计算相似度
+    #         similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
+    #
+    #         documents = []
+    #         for idx, sim in enumerate(similarities):
+    #             if sim >= threshold:
+    #                 content = f"{self.entity_index['types'][idx]}: {self.entity_index['names'][idx]}"
+    #                 metadata = {
+    #                     "node_id": self.entity_index["ids"][idx],
+    #                     "entity_name": self.entity_index["names"][idx],
+    #                     "entity_type": self.entity_index["types"][idx],
+    #                     "similarity": float(sim),
+    #                     "source": "knowledge_graph",
+    #                     "query": query_text
+    #                 }
+    #
+    #                 documents.append(Document(page_content=content, metadata=metadata))
+    #
+    #         # 排序并截取top_k
+    #         documents.sort(key=lambda x: x.metadata.get("similarity", 0), reverse=True)
+    #         logger.info(f"向量检索找到 {len(documents[:top_k])} 个相似实体")
+    #
+    #         return documents[:top_k]
+    #
+    #     except Exception as e:
+    #         logger.error(f"向量检索失败: {e}")
+    #         return []
 
     def search_by_keyword(self, keyword: str, limit: int = 50) -> List[Document]:
         """
@@ -540,37 +539,3 @@ class GraphSearcher:
             vdb_desc += f"片段{i + 1}: {doc[:200]}...\n"
         return vdb_desc
 
-
-def get_gs(config: Dict[str, Any] = None) -> GraphSearcher:
-    """
-    获取图谱检索器实例（单例模式）
-
-    Args:
-        config: 配置字典，包含 neo4j 和 embedding 配置
-
-    Returns:
-        图谱检索器实例
-    """
-    global _gs_instance
-    if not _gs_instance:
-        if config is None:
-            raise ValueError("首次调用必须传入config参数")
-
-        # 提取Neo4j配置
-        neo4j_config = {
-            "uri": config.get("neo4j", {}).get("uri", "bolt://localhost:7687"),
-            "user": config.get("neo4j", {}).get("user", "neo4j"),
-            "password": config.get("neo4j", {}).get("password", ""),
-            "database": config.get("neo4j", {}).get("database", "neo4j")
-        }
-
-        # 提取嵌入配置
-        embedding_config = {
-            "provider": config.get("embedding", {}).get("text_dense", {}).get("provider"),
-            "model": config.get("embedding", {}).get("text_dense", {}).get("model"),
-            "api_key": config.get("embedding", {}).get("text_dense", {}).get("api_key"),
-            "base_url": config.get("embedding", {}).get("text_dense", {}).get("base_url")
-        }
-
-        _gs_instance = GraphSearcher(Neo4jConnection(neo4j_config), embedding_config=embedding_config)
-    return _gs_instance
