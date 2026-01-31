@@ -4,21 +4,13 @@ Milvus向量检索模块测试文件
 """
 import json
 import logging
-import sys
-from pathlib import Path
-
-from rag.rag_loader import RAGConfigLoader
-from utils import create_llm_client, create_embedding_client
-
-# 添加项目路径
-project_dir = Path(__file__).parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from rag.rag_loader import RAGConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
-from recall.milvus.embed_search import create_db_search_tool, llm_db_search
+from recall.milvus.embed_search import create_db_search_tool
+from utils import create_llm_client, create_embedding_client
 
 # 配置日志
 logging.basicConfig(
@@ -62,7 +54,7 @@ class MilvusSearchTester:
             embed_model = create_embedding_client(rag_config.embedding)
 
             # 创建数据库检索工具
-            self.db_search_tool, self.db_search_llm, self.db_tool_node = create_db_search_tool(
+            self.db_search_tool, self.db_search_llm = create_db_search_tool(
                 embed_config_loader=self.embedConfigLoader,
                 power_model=self.llm,
                 embed_model=embed_model
@@ -110,93 +102,7 @@ class MilvusSearchTester:
             traceback.print_exc()
             return False
 
-    def test_llm_db_search_node(self, query: str = "糖尿病的常见症状有哪些？"):
-        """测试2: 测试llm_db_search节点"""
-        logger.info("\n" + "=" * 60)
-        logger.info("测试2: LLM数据库检索节点")
-        logger.info("=" * 60)
 
-        try:
-            # 准备状态
-            state = {
-                "query": query,
-                "main_messages": [],
-                "other_messages": [],
-                "docs": [],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
-            }
-
-            logger.info(f"查询问题: {query}")
-            logger.info(f"初始文档数: {len(state['docs'])}")
-
-            # 执行数据库检索
-            state = llm_db_search(
-                state=state,
-                llm=self.db_search_llm,
-                db_tool_node=self.db_tool_node,
-                show_debug=True
-            )
-
-            logger.info(f"✓ 检索节点执行成功")
-            logger.info(f"  检索到的文档数量: {len(state['docs'])}")
-            logger.info(f"  其他消息数: {len(state['other_messages'])}")
-
-            # 显示检索结果
-            if state['docs']:
-                logger.info(f"\n检索到的文档内容:")
-                for i, doc in enumerate(state['docs'][:3], 1):
-                    logger.info(f"\n--- 文档 {i} ---")
-                    logger.info(f"  内容: {doc.page_content[:300]}...")
-                    logger.info(f"  元数据: {doc.metadata}")
-            else:
-                logger.warning("⚠ 未检索到任何文档")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"✗ 测试失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    def test_llm_judgment(self, query: str = "心肌梗死的预防措施"):
-        """测试3: 测试LLM判断是否需要数据库检索"""
-        logger.info("\n" + "=" * 60)
-        logger.info("测试3: LLM判断数据库检索")
-        logger.info("=" * 60)
-
-        try:
-            from recall.milvus.embed_templates import get_prompt_template
-
-            # 调用LLM判断是否需要调用数据库检索工具
-            db_ai = self.llm.invoke([
-                SystemMessage(content=get_prompt_template("call_db")["system"]),
-                HumanMessage(content=get_prompt_template("call_db")["user"].format(query=query))
-            ])
-
-            logger.info(f"查询问题: {query}")
-            logger.info(f"LLM响应: {db_ai.content[:200]}...")
-
-            # 检查是否决定调用工具
-            tool_calls = getattr(db_ai, 'tool_calls', None)
-            if tool_calls and len(tool_calls) > 0:
-                logger.info(f"✓ LLM决定调用数据库检索工具")
-                logger.info(f"  工具调用数: {len(tool_calls)}")
-                for i, call in enumerate(tool_calls, 1):
-                    logger.info(f"  调用 {i}: {call}")
-            else:
-                logger.info(f"✓ LLM决定不调用数据库检索工具")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"✗ 测试失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
     def test_multi_query(self, queries: list = None):
         """测试4: 批量查询测试"""
@@ -238,55 +144,6 @@ class MilvusSearchTester:
             traceback.print_exc()
             return False
 
-    def test_search_with_documents(self, query: str = "心衰的治疗"):
-        """测试5: 基于已有文档的检索"""
-        logger.info("\n" + "=" * 60)
-        logger.info("测试5: 基于已有文档的检索")
-        logger.info("=" * 60)
-
-        try:
-            from langchain_core.documents import Document
-
-            # 准备状态，包含已有文档
-            state = {
-                "query": query,
-                "main_messages": [],
-                "other_messages": [],
-                "docs": [
-                    Document(
-                        page_content="心力衰竭是指心脏泵血功能下降的病理状态。",
-                        metadata={"source": "medical_db_1"}
-                    )
-                ],
-                "answer": "",
-                "retry": 0,
-                "final": "",
-                "judge_result": ""
-            }
-
-            logger.info(f"查询问题: {query}")
-            logger.info(f"已有文档数: {len(state['docs'])}")
-            logger.info(f"已有文档内容: {state['docs'][0].page_content}")
-
-            # 执行检索
-            state = llm_db_search(
-                state=state,
-                llm=self.db_search_llm,
-                db_tool_node=self.db_tool_node,
-                show_debug=True
-            )
-
-            logger.info(f"✓ 检索完成")
-            logger.info(f"  最终文档数: {len(state['docs'])}")
-            logger.info(f"  新增文档数: {len(state['docs']) - 1}")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"✗ 测试失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
     def run_all_tests(self):
         """运行所有测试"""
@@ -301,10 +158,7 @@ class MilvusSearchTester:
 
         results = {
             "测试1-直接工具调用": self.test_direct_tool_invocation(),
-            "测试2-LLM检索节点": self.test_llm_db_search_node(),
-            "测试3-LLM判断检索": self.test_llm_judgment(),
-            "测试4-批量查询": self.test_multi_query(),
-            "测试5-已有文档检索": self.test_search_with_documents()
+            "测试2-批量查询": self.test_multi_query(),
         }
 
         # 输出测试结果汇总

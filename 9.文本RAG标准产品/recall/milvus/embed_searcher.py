@@ -3,17 +3,16 @@ import hashlib
 import logging
 from typing import Dict, Any, Optional, Union, List
 
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from pymilvus import connections, Collection, AnnSearchRequest, RRFRanker, WeightedRanker
-from langchain_core.documents import Document
 
 from .embed_config import (
-    EmbedConfig, SearchRequest, SingleSearchRequest, FusionSpec,
-    DenseFieldConfig, SparseFieldConfig
+    EmbedConfig, SearchRequest, SingleSearchRequest, FusionSpec
 )
 from .embed_loader import EmbedConfigLoader
-from .sparse_vectorizer import SparseVectorProcessor
 from .embed_vocab import Vocabulary
+from .sparse_vectorizer import SparseVectorProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +272,6 @@ class VectorFieldProcessor:
         return self.sparse_processor.build_sparse_vector(text, avgdl)
 
 
-# 0000
 def get_kb(config: Dict[str, Any] = None, embed_model: Embeddings = None) -> EmbedSearcher:
     """
     获取知识库实例（单例模式）

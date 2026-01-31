@@ -88,7 +88,7 @@ class KGraphSearchTester:
             logger.info("✓ LLM初始化成功")
 
             # 创建检索工具
-            self.kgraph_tool, self.kgraph_llm, self.kgraph_tool_node = create_kgraph_search_tool(
+            self.kgraph_tool, self.kgraph_llm = create_kgraph_search_tool(
                 self.kgraphConfigLoader, power_model,self.embed_model
             )
 
@@ -213,39 +213,7 @@ class KGraphSearchTester:
             traceback.print_exc()
             return False
 
-    def test_llm_judgment(self, query: str = "心肌梗死的治疗方法"):
-        """测试5: LLM判断是否需要图谱检索"""
-        logger.info("\n" + "=" * 60)
-        logger.info("测试5: LLM判断图谱检索")
-        logger.info("=" * 60)
 
-        try:
-            from recall.kgraph.kg_templates import get_prompt_template
-
-            # 调用LLM判断是否需要调用图谱检索工具
-            kg_ai = self.llm.invoke([
-                SystemMessage(content=get_prompt_template("call_kgraph")["system"]),
-                HumanMessage(content=get_prompt_template("call_kgraph")["user"].format(query=query))
-            ])
-
-            logger.info(f"查询问题: {query}")
-            logger.info(f"LLM响应: {kg_ai.content[:200]}...")
-
-            # 检查是否决定调用工具
-            tool_calls = getattr(kg_ai, 'tool_calls', None)
-            if tool_calls and len(tool_calls) > 0:
-                logger.info(f"✓ LLM决定调用图谱检索工具")
-                logger.info(f"  工具调用数: {len(tool_calls)}")
-            else:
-                logger.info(f"✓ LLM决定不调用图谱检索工具")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"✗ 测试失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
     def run_all_tests(self):
         """运行所有测试"""
@@ -261,9 +229,8 @@ class KGraphSearchTester:
         results = {
             "测试1-关键词检索": self.test_query_search(),
             "测试2-关系检索": self.test_relation_search(),
-            # "测试3-综合图谱检索": self.test_keyword_search(),
+            "测试3-综合图谱检索": self.test_keyword_search(),
             "测试4-检索工具调用": self.test_tool_invocation(),
-            "测试5-LLM判断检索": self.test_llm_judgment()
         }
 
         # 输出测试结果汇总

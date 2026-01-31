@@ -3,21 +3,17 @@ import json
 import logging
 from typing import List
 
+from langchain.tools import tool
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import Tool
 from typing_extensions import TypedDict
 
-from langchain.tools import tool
-from langchain_core.documents import Document
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from langgraph.prebuilt import ToolNode
-
-from .embed_loader import EmbedConfigLoader
 from .embed_config import SingleSearchRequest
+from .embed_loader import EmbedConfigLoader
 from .embed_searcher import get_kb
-from .embed_templates import get_prompt_template
-from .embed_utils import json_to_list_document, _should_call_tool
+from .embed_utils import json_to_list_document
 
 
 class DBRecallState(TypedDict, total=False):
@@ -78,89 +74,6 @@ def db_search(state: "DBRecallState", db_tool: Tool, show_debug: bool = False) -
                 logger.warning("未检索到任何文档！")
     except Exception as e:
         logger.error(f"检索过程出错: {e}")
-
-    return state
-
-def llm_db_search(
-        state: "DBRecallState",
-        llm: BaseChatModel,
-        db_tool_node: ToolNode,
-        show_debug: bool
-) -> "DBRecallState":
-    """
-    数据库检索节点
-
-    ========== 功能说明 ==========
-    该节点负责：
-    1. 接收用户查询，让LLM判断是否需要调用数据库检索工具
-    2. 如果需要，执行数据库检索并获取相关文档
-    3. 将检索到的文档添加到状态中供后续RAG使用
-    """
-    logging.info('-' * 60)
-    logging.info("开始向量检索")
-    logging.info('-' * 60)
-
-    query = state["query"]
-
-    if show_debug:
-        logger.info(f"开始db检索节点，查询: {query}")
-
-    # 调用LLM，让其判断是否需要调用数据库检索工具
-    db_ai = llm.invoke([
-        SystemMessage(content=get_prompt_template("call_db")["system"]),
-        HumanMessage(content=get_prompt_template("call_db")["user"].format(query=query))
-    ])
-    state["other_messages"].append(db_ai)
-
-    # 检查LLM是否决定调用工具
-    if _should_call_tool(db_ai):
-        if show_debug:
-            tool_calls = getattr(db_ai, 'tool_calls', None)
-            if tool_calls and len(tool_calls) > 0:
-                try:
-                    if hasattr(tool_calls[0], 'args'):
-                        args = tool_calls[0].args
-                    elif isinstance(tool_calls[0], dict):
-                        args = tool_calls[0].get('args', {})
-                    else:
-                        args = {}
-                    logger.info(f"开始db检索，检索参数：{args}")
-                except Exception as e:
-                    logger.error(f"获取工具参数失败: {e}")
-
-        try:
-            # 执行工具调用
-            tool_msgs: ToolMessage = db_tool_node.invoke([db_ai])
-            state["other_messages"].append(tool_msgs)
-
-            # 检查工具返回内容
-            tool_content = tool_msgs[0].content if tool_msgs else ""
-            if show_debug:
-                logger.info(f"工具返回内容长度: {len(tool_content)}")
-                if tool_content:
-                    logger.info(f"工具返回内容前200字符: {tool_content[:200]}")
-
-            # 如果返回空内容,跳过JSON解析
-            if not tool_content or not tool_content.strip():
-                logger.warning("工具返回空内容,跳过JSON解析")
-                return state
-
-            # 将ToolMessage中的JSON字符串转换为Document对象列表
-            new_docs = json_to_list_document(tool_content)
-            state["docs"].extend(new_docs)
-
-            if show_debug:
-                logger.info(f"检索到 {len(new_docs)} 条文档")
-                if len(state["docs"]) >= 2:
-                    logger.info(
-                        f"部分示例（共{len(state['docs'])}条）：\n\n{state['docs'][0].page_content[:200]}...\n\n{state['docs'][1].page_content[:200]}..."
-                    )
-                elif len(state["docs"]) == 1:
-                    logger.info(f"仅检索一条数据：\n\n{state['docs'][0].page_content[:200]}")
-                else:
-                    logger.warning("未检索到任何文档！")
-        except Exception as e:
-            logger.error(f"检索过程出错: {e}")
 
     return state
 
@@ -292,6 +205,5 @@ def create_db_search_tool(
 
     db_search_tool = database_search
     db_search_llm = power_model.bind_tools([db_search_tool])
-    # db_tool_node = ToolNode([db_search_tool])
 
     return db_search_tool, db_search_llm
