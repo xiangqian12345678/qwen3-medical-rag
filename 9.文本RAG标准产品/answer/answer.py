@@ -5,11 +5,10 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from typing_extensions import TypedDict
 
 from .answer_templates import get_prompt_template
 from .utils import format_document_str, del_think
-
-from typing_extensions import TypedDict
 
 
 class AnswerState(TypedDict, total=False):
@@ -65,57 +64,4 @@ def generate_answer(
     # TODO性能信息添加
 
     state["answer"] = rag_ai.content
-    return state
-
-
-def judge_node(
-        state: "AnswerState",
-        llm: BaseChatModel,
-        show_debug: bool
-) -> "AnswerState":
-    """质量判断节点"""
-    if show_debug:
-        logger.info(f"开始评估...")
-
-    judge_ai = llm.invoke([
-        SystemMessage(content=get_prompt_template("judge_rag")["system"]),
-        HumanMessage(
-            content=get_prompt_template("judge_rag")["user"].format(
-                format_document_str=format_document_str(state.get('docs', [])),
-                query=state['query'],
-                summary=state.get('answer', '')
-            )
-        )
-    ])
-
-    result = del_think(judge_ai.content or "").strip().lower()
-
-    if show_debug:
-        logger.info(f"评估结果: {result[:20]}")
-
-    state["other_messages"].append(AIMessage(content=f"[JUDGE]={result}"))
-
-    if 'y' in result:
-        state["judge_result"] = "pass"
-    else:
-        retries_left = int(state.get("retry", 0))
-        if retries_left > 0:
-            state["retry"] = retries_left - 1
-            state["judge_result"] = "retry"
-        else:
-            state["judge_result"] = "fail"
-
-    return state
-
-
-def finish_success(state: "AnswerState") -> "AnswerState":
-    """成功结束节点"""
-    state["final"] = (state.get("answer", "") or "").strip() or "（空）"
-    return state
-
-
-def finish_fail(state: "AnswerState") -> "AnswerState":
-    """失败结束节点"""
-    base = (state.get("answer", "") or "").strip() or "（空）"
-    state["final"] = base + "\n\n（内容可能不属实）"
     return state

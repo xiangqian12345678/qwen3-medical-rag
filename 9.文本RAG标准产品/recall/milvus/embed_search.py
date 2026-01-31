@@ -292,6 +292,6 @@ def create_db_search_tool(
 
     db_search_tool = database_search
     db_search_llm = power_model.bind_tools([db_search_tool])
-    db_tool_node = ToolNode([db_search_tool])
+    # db_tool_node = ToolNode([db_search_tool])
 
-    return db_search_tool, db_search_llm, db_tool_node
+    return db_search_tool, db_search_llm

@@ -1,25 +1,19 @@
 """搜索图：用于执行单个查询的RAG检索流程"""
 import logging
-from functools import partial
 from typing import List
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from langgraph.graph import StateGraph, END
 from typing_extensions import TypedDict
 
-from answer.answer import generate_answer, judge_node, finish_success, finish_fail
 from app_config import APPConfig
-from recall.kgraph import llm_kgraph_search, create_kgraph_search_tool
+from recall.kgraph import create_kgraph_search_tool
 from recall.kgraph.kg_utils import json_to_list_document as kg_json_to_list_document
-from recall.kgraph.kgraph_search import kgraph_search
-from recall.milvus import llm_db_search, create_db_search_tool
-from recall.milvus.embed_search import db_search
+from recall.milvus import create_db_search_tool
 from recall.milvus.embed_utils import json_to_list_document
-from recall.search import llm_network_search, create_web_search_tool
+from recall.search import create_web_search_tool
 from recall.search.search_utils import json_to_list_document as web_json_to_list_document
-from recall.search.web_search import network_search
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +45,9 @@ class RecallGraph:
         self.appConfig = app_config
 
         # 1.创建数据库检索工具
-        db_tool, db_llm, db_node = create_db_search_tool(app_config.milvus_config_loader, llm, embed_model=embed_model)
+        db_tool, db_llm = create_db_search_tool(app_config.milvus_config_loader, llm, embed_model=embed_model)
         self.db_search_tool = db_tool
         self.db_search_llm = db_llm
-        self.db_tool_node = db_node
 
         # 2.创建网络搜索工具
         if app_config.agent_config.network_search_enabled:
@@ -70,119 +63,13 @@ class RecallGraph:
 
         # 3.创建知识图谱搜索工具
         if app_config.agent_config.kgraph_search_enabled:
-            kgraph_tool, kgraph_llm = create_kgraph_search_tool(app_config.kgraph_config_loader, llm,
-                                                                             embed_model=embed_model)
+            kgraph_tool, kgraph_llm \
+                = create_kgraph_search_tool(app_config.kgraph_config_loader, llm, embed_model=embed_model)
             self.kgraph_search_tool = kgraph_tool
             self.kgraph_search_llm = kgraph_llm
         else:
             self.kgraph_search_tool = None
             self.kgraph_search_llm = None
-
-        # 创建用于回答的LLM客户端
-        self.llm = llm
-
-        # 检索图
-        self.search_graph = None
-
-    def build_search_graph(self):
-        def judge_router(state: RecallState) -> str:
-            """路由函数"""
-            return state.get("judge_result", "fail")
-
-        # 1.创建检索图
-        recall_graph = StateGraph(RecallState)
-
-        # 2.创建节点
-        # 2.1 创建db_search节点
-        db_search_func = partial(
-            db_search,
-            db_tool=self.db_search_tool,
-            show_debug=self.appConfig.dialogue_config.console_debug
-        )
-        recall_graph.add_node("db_search", db_search_func)
-
-        # 2.2 添加web_search节点
-        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
-            network_search_func = partial(
-                network_search,
-                search_tool=self.network_search_tool,
-                show_debug=self.appConfig.dialogue_config.console_debug
-            )
-            recall_graph.add_node("web_search", network_search_func)
-
-        # 2.3 添加知识图谱搜索节点
-        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
-            kgraph_search_node_func = partial(
-                kgraph_search,
-                kgraph_tool=self.kgraph_search_tool,
-                show_debug=self.appConfig.dialogue_config.console_debug
-            )
-            recall_graph.add_node("kgraph_search", kgraph_search_node_func)
-
-        # 添加RAG节点
-        answer_func = partial(
-            generate_answer,
-            llm=self.llm,
-            show_debug=self.appConfig.dialogue_config.console_debug
-        )
-        recall_graph.add_node("rag", answer_func)
-
-        # 1.3 添加结束节点
-        recall_graph.add_node("finish_success", finish_success)
-        recall_graph.add_node("finish_fail", finish_fail)
-
-        # 1.4 添加判断节点
-        judge_node_func = partial(
-            judge_node,
-            llm=self.llm,
-            show_debug=self.appConfig.dialogue_config.console_debug
-        )
-        recall_graph.add_node("judge", judge_node_func)
-
-        # 构建检索流程：db_search -> web_search(可选) -> kgraph_search(可选) -> rag
-        # 2.设置边
-        # 2.1 召回流程
-        # 2.1.1 向量召回为入口节点
-        recall_graph.set_entry_point("db_search")
-        last_node = "db_search"
-
-        # 2.1.2 网络召回
-        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
-            recall_graph.add_edge("db_search", "web_search")
-            last_node = "web_search"
-
-        # 2.1.3 知识图谱召回
-        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
-            recall_graph.add_edge(last_node, "kgraph_search")
-            last_node = "kgraph_search"
-
-        recall_graph.add_edge(last_node, "rag")
-        recall_graph.add_edge("rag", "judge")
-        recall_graph.add_conditional_edges(
-            "judge",
-            judge_router,
-            {
-                "pass": "finish_success",
-                "retry": "rag",
-                "fail": "finish_fail"
-            }
-        )
-        recall_graph.add_edge("finish_success", END)
-        recall_graph.add_edge("finish_fail", END)
-
-        self.search_graph = recall_graph.compile()
-
-    def run(self, init_state: RecallState) -> RecallState:
-        """
-        执行搜索图
-        Args:    init_state: 初始状态
-        Returns: 执行完成后的最终状态
-        """
-        if self.search_graph is None:
-            self.build_search_graph()
-
-        out_state: RecallState = self.search_graph.invoke(init_state)
-        return out_state
 
     def search(self, query: str) -> List[Document]:
         docs: List[Document] = []
@@ -199,7 +86,7 @@ class RecallGraph:
             docs.extend(web_docs)
 
         # 3. 调用知识图谱检索
-        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_tool_node is not None:
+        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_search_tool is not None:
             tool_result = self.kgraph_search_tool.invoke(query)
             kg_docs = kg_json_to_list_document(tool_result)
             docs.extend(kg_docs)
