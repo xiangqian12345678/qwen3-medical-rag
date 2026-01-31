@@ -4,6 +4,7 @@ import logging
 from typing import List
 
 from langchain_core.embeddings import Embeddings
+from langchain_core.tools import Tool
 from typing_extensions import TypedDict
 
 from langchain.tools import tool
@@ -28,6 +29,58 @@ class DBRecallState(TypedDict, total=False):
 logger = logging.getLogger(__name__)
 
 
+def db_search(state: "DBRecallState", db_tool: Tool, show_debug: bool = False) -> "DBRecallState":
+    """
+    数据库检索节点（直接调用工具版本）
+
+    ========== 功能说明 ==========
+    该节点负责：
+    1. 直接调用数据库检索工具，不经过LLM判断
+    2. 执行数据库检索并获取相关文档
+    3. 将检索到的文档添加到状态中供后续RAG使用
+    """
+    logging.info('-' * 60)
+    logging.info("开始向量检索")
+    logging.info('-' * 60)
+
+    query = state["query"]
+
+    if show_debug:
+        logger.info(f"开始db检索节点，查询: {query}")
+
+    try:
+        # 直接调用工具
+        tool_content = db_tool.invoke({"query": query})
+
+        if show_debug:
+            logger.info(f"工具返回内容长度: {len(tool_content)}")
+            if tool_content:
+                logger.info(f"工具返回内容前200字符: {tool_content[:200]}")
+
+        # 如果返回空内容,跳过JSON解析
+        if not tool_content or not tool_content.strip():
+            logger.warning("工具返回空内容,跳过JSON解析")
+            return state
+
+        # 将ToolMessage中的JSON字符串转换为Document对象列表
+        new_docs = json_to_list_document(tool_content)
+        state["docs"].extend(new_docs)
+
+        if show_debug:
+            logger.info(f"检索到 {len(new_docs)} 条文档")
+            if len(state["docs"]) >= 2:
+                logger.info(
+                    f"部分示例（共{len(state['docs'])}条）：\n\n{state['docs'][0].page_content[:200]}...\n\n{state['docs'][1].page_content[:200]}..."
+                )
+            elif len(state["docs"]) == 1:
+                logger.info(f"仅检索一条数据：\n\n{state['docs'][0].page_content[:200]}")
+            else:
+                logger.warning("未检索到任何文档！")
+    except Exception as e:
+        logger.error(f"检索过程出错: {e}")
+
+    return state
+
 def llm_db_search(
         state: "DBRecallState",
         llm: BaseChatModel,
@@ -43,9 +96,9 @@ def llm_db_search(
     2. 如果需要，执行数据库检索并获取相关文档
     3. 将检索到的文档添加到状态中供后续RAG使用
     """
-    print('-' * 60)
-    print("开始向量检索")
-    print('-' * 60)
+    logging.info('-' * 60)
+    logging.info("开始向量检索")
+    logging.info('-' * 60)
 
     query = state["query"]
 
@@ -115,7 +168,7 @@ def llm_db_search(
 def create_db_search_tool(
         embed_config_loader: EmbedConfigLoader,
         power_model: BaseChatModel,
-        embed_model: Embeddings
+        embed_model: Embeddings = None
 ):
     """
     创建数据库检索工具节点
@@ -128,6 +181,8 @@ def create_db_search_tool(
     Returns:
         tuple: (db_search_tool, db_search_llm, db_tool_node)
     """
+    if embed_model is None:
+        raise ValueError("embed_model 参数不能为 None,必须传入有效的 Embeddings 实例")
 
     # 向量检索对应的collection_name
     fixed_collection_name = embed_config_loader.milvus.collection_name or embed_config_loader.default_search.collection_name

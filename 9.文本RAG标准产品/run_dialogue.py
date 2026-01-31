@@ -37,10 +37,10 @@ def main():
     agent = DialogueAgent(app_config=app_config, embeddings_model=embed_model, llm=llm_model, reranker=reranker)
 
     # 交互式对话
-    print("=" * 50)
-    print("多轮对话Agent - 交互模式")
-    print("=" * 50)
-    print("输入 'exit' 或 'quit' 退出对话\n")
+    logging.info("=" * 50)
+    logging.info("多轮对话Agent - 交互模式")
+    logging.info("=" * 50)
+    logging.info("输入 'exit' 或 'quit' 退出对话\n")
 
     # user_input = "什么是房颤？"  会触发所有的召回
     try:
@@ -50,7 +50,7 @@ def main():
 
             # 检查退出命令
             if user_input.lower() in ['exit', 'quit', '退出', 'q']:
-                print("\n退出对话...")
+                logging.info("\n退出对话...")
                 break
 
             # 跳过空输入
@@ -62,8 +62,8 @@ def main():
 
             # 处理追问 - 使用while循环支持多次追问
             while state["ask_obj"].need_ask:
-                print(f"Agent: {state['asking_messages'][-1][-1].content}")
-                print("（需要追问更多信息）")
+                logging.info(f"Agent: {state['asking_messages'][-1][-1].content}")
+                logging.info("（需要追问更多信息）")
 
                 # 获取用户回复
                 user_input = input("用户: ").strip()
@@ -80,17 +80,17 @@ def main():
                 state = agent.answer(query=user_input)
 
             # 输出最终回答
-            print(f"\nAgent: {state['final_answer']}")
+            logging.info(f"\nAgent: {state['final_answer']}")
 
             # 输出性能信息
-            print("\n" + "-" * 50)
-            print("性能信息:")
+            logging.info("\n" + "-" * 50)
+            logging.info("性能信息:")
             for name, perf in state.get("performance", []):
-                print(f"  {name}: {perf}")
-            print("-" * 50)
+                logging.info(f"  {name}: {perf}")
+            logging.info("-" * 50)
 
     except KeyboardInterrupt:
-        print("\n\n用户中断，退出对话...")
+        logging.info("\n\n用户中断，退出对话...")
     except Exception as e:
         logger.error(f"运行出错: {e}")
         import traceback

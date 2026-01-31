@@ -32,7 +32,7 @@ class DialogueAgent:
         self.llm = llm
         self.embeddings_model = embeddings_model
         self.reranker = reranker
-        self.recall_graph = RecallGraph(app_config, llm)
+        self.recall_graph = RecallGraph(app_config, llm, embed_model=embeddings_model)
 
         # 对话状态
         self.agent_state = AgentState(

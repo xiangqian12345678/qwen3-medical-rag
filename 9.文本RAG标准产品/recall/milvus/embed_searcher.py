@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # 知识库实例缓存
 _kb_instance: Optional["EmbedSearcher"] = None
+_kb_embed_model: Optional[Embeddings] = None
 
 
 class EmbedSearcher:
@@ -214,6 +215,7 @@ class VectorFieldProcessor:
 
         Args:
             config: 嵌入配置对象，包含稠密和稀疏字段的配置信息
+            embed_model: 嵌入模型实例
         """
         self.config = config
         # 稠密向量嵌入器字典：key为字段名，value为嵌入器实例
@@ -224,6 +226,8 @@ class VectorFieldProcessor:
         # 初始化稠密向量嵌入器
         for field_name, field_config in config.dense_fields.items():
             if field_config.embed:
+                if embed_model is None:
+                    raise ValueError(f"字段 {field_name} 配置了稠密向量嵌入,但未提供 embed_model 参数")
                 # self.dense_embedders[field_name] = create_embedding_client(field_config)
                 self.dense_embedders[field_name] = embed_model
 
@@ -276,21 +280,24 @@ def get_kb(config: Dict[str, Any] = None, embed_model: Embeddings = None) -> Emb
 
     Args:
         config: 配置字典
+        embed_model: 嵌入模型实例
 
     Returns:
         EmbedSearcher: 知识库实例
     """
-    global _kb_instance
+    global _kb_instance, _kb_embed_model
 
-    if _kb_instance is None:
+    if _kb_instance is None or embed_model != _kb_embed_model:
         if config is None:
             raise ValueError("首次调用必须传入config参数")
         _kb_instance = EmbedSearcher(config, embed_model=embed_model)
+        _kb_embed_model = embed_model
 
     return _kb_instance
 
 
 def reset_kb():
     """重置知识库实例（用于测试或重新初始化）"""
-    global _kb_instance
+    global _kb_instance, _kb_embed_model
     _kb_instance = None
+    _kb_embed_model = None

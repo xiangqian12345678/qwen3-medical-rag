@@ -1,4 +1,5 @@
 """网络搜索模块"""
+from langchain_core.tools import Tool
 
 """网络搜索模块"""
 import logging
@@ -34,6 +35,72 @@ class NetworkSearchResult(BaseModel):
     search_query: str = Field(description="网络搜索查询词", default="")
     remain_doc_index: List[int] = Field(description="保留的文档索引列表", default=[])
 
+def network_search(
+        state: "WebSearchState",
+        search_tool: Tool,
+        show_debug: bool = False
+) -> "WebSearchState":
+    """
+    网络检索节点（直接调用，不使用大模型判断）
+
+    ========== 功能说明 ==========
+    该节点负责：
+    1. 接收用户查询，直接调用网络搜索工具
+    2. 执行网络检索并获取相关文档
+    3. 将检索到的文档添加到状态中供后续RAG使用
+
+    Args:
+        state: WebSearchState状态
+        search_tool: 网络搜索工具实例
+        show_debug: 是否显示调试信息
+    """
+    logging.info('-' * 60)
+    logging.info("开始网络检索")
+    logging.info('-' * 60)
+
+    query = state["query"]
+
+    if show_debug:
+        logger.info(f"开始网络检索节点，查询: {query}")
+
+    try:
+        # 直接调用搜索工具
+        if show_debug:
+            logger.info(f"直接调用搜索工具，查询: {query}")
+
+        if search_tool:
+            tool_result = search_tool.invoke(query)
+
+            if show_debug:
+                logger.info(f"工具返回内容长度: {len(tool_result)}")
+                if tool_result:
+                    logger.info(f"工具返回内容前200字符: {tool_result[:200]}")
+
+            # 如果返回空内容，跳过JSON解析
+            if not tool_result or not tool_result.strip():
+                logger.warning("工具返回空内容，跳过JSON解析")
+                return state
+
+            # 将工具返回的JSON字符串转换为Document对象列表
+            new_docs = json_to_list_document(tool_result)
+            state["docs"].extend(new_docs)
+
+            if show_debug:
+                logger.info(f"检索到 {len(new_docs)} 条文档")
+                if len(state["docs"]) >= 2:
+                    logger.info(
+                        f"部分示例（共{len(state['docs'])}条）：\n\n{state['docs'][0].page_content[:200]}...\n\n{state['docs'][1].page_content[:200]}..."
+                    )
+                elif len(state["docs"]) == 1:
+                    logger.info(f"仅检索一条数据：\n\n{state['docs'][0].page_content[:200]}")
+                else:
+                    logger.warning("未检索到任何文档！")
+        else:
+            logger.error("search_tool 未提供，无法执行网络搜索")
+    except Exception as e:
+        logger.error(f"检索过程出错: {e}")
+
+    return state
 
 def llm_network_search(
         state: "WebSearchState",
@@ -56,9 +123,9 @@ def llm_network_search(
         search_tool: 网络搜索工具实例
         show_debug: 是否显示调试信息
     """
-    print('-' * 60)
-    print("开始网络检索")
-    print('-' * 60)
+    logging.info('-' * 60)
+    logging.info("开始网络检索")
+    logging.info('-' * 60)
 
     query = state["query"]
 
@@ -234,20 +301,20 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    print("=" * 60)
-    print("web_search.py 功能测试")
-    print("=" * 60)
+    logging.info("=" * 60)
+    logging.info("web_search.py 功能测试")
+    logging.info("=" * 60)
 
     # 配置参数（不再使用配置文件）
     network_search_cnt = 10  # 网络搜索返回结果数量
 
     # 1. 测试初始化
-    print("\n[测试1] 初始化组件...")
+    logging.info("\n[测试1] 初始化组件...")
     try:
         # 先初始化 WebSearcher
         reset_kb()  # 重置单例
         get_ws({})  # 初始化（WebSearcher 当前不需要配置）
-        print("✓ WebSearcher 初始化成功")
+        logging.info("✓ WebSearcher 初始化成功")
 
         # 创建LLM实例（需要配置API Key）
         llm = ChatOpenAI(
@@ -256,17 +323,17 @@ if __name__ == "__main__":
             base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
             api_key=os.getenv("LLM_API_KEY", "sk-xxx")
         )
-        print(f"✓ LLM初始化成功")
+        logging.info(f"✓ LLM初始化成功")
 
     except Exception as e:
-        print(f"✗ 初始化失败: {e}")
+        logging.info(f"✗ 初始化失败: {e}")
         import traceback
 
         traceback.print_exc()
         exit(1)
 
     # 2. 测试创建网络搜索工具
-    print("\n[测试2] 创建网络搜索工具...")
+    logging.info("\n[测试2] 创建网络搜索工具...")
     search_tool = None
     search_llm = None
     try:
@@ -275,44 +342,44 @@ if __name__ == "__main__":
             search_cnt=network_search_cnt,
             power_model=llm
         )
-        print(f"✓ 网络搜索工具创建成功")
+        logging.info(f"✓ 网络搜索工具创建成功")
 
     except Exception as e:
-        print(f"✗ 创建网络搜索工具失败: {e}")
+        logging.info(f"✗ 创建网络搜索工具失败: {e}")
         import traceback
 
         traceback.print_exc()
 
     # 3. 测试网络搜索执行
-    print("\n[测试3] 执行网络搜索...")
+    logging.info("\n[测试3] 执行网络搜索...")
     if llm and search_tool:
         try:
             search_query = "阿司匹林副作用"
-            print(f"  搜索查询: {search_query}")
+            logging.info(f"  搜索查询: {search_query}")
 
             # 直接调用搜索工具
             result = search_tool.invoke(search_query)
-            print(f"✓ 网络搜索执行成功")
-            print(f"  - 结果长度: {len(result)} 字符")
+            logging.info(f"✓ 网络搜索执行成功")
+            logging.info(f"  - 结果长度: {len(result)} 字符")
 
             # 解析并显示结果
             import json
 
             results_data = json.loads(result)
-            print(f"  - 检索到 {len(results_data)} 条结果")
+            logging.info(f"  - 检索到 {len(results_data)} 条结果")
             if results_data:
-                print(f"  - 第一条结果预览: {results_data[0]['page_content'][:1000]}...")
+                logging.info(f"  - 第一条结果预览: {results_data[0]['page_content'][:1000]}...")
 
         except Exception as e:
-            print(f"✗ 网络搜索执行失败: {e}")
+            logging.info(f"✗ 网络搜索执行失败: {e}")
             import traceback
 
             traceback.print_exc()
     else:
-        print("⚠ 前置条件不满足，跳过搜索执行测试")
+        logging.info("⚠ 前置条件不满足，跳过搜索执行测试")
 
     # 4. 测试llm_network_search节点（需要模拟state）
-    print("\n[测试4] 测试llm_network_search节点...")
+    logging.info("\n[测试4] 测试llm_network_search节点...")
     if llm and search_tool:
         try:
             from langchain_core.documents import Document
@@ -329,8 +396,8 @@ if __name__ == "__main__":
                 ]
             }
 
-            print(f"  查询问题: {test_state['query']}")
-            print(f"  输入文档数: {len(test_state['docs'])}")
+            logging.info(f"  查询问题: {test_state['query']}")
+            logging.info(f"  输入文档数: {len(test_state['docs'])}")
 
             # 执行网络搜索节点
             result_state = llm_network_search(
@@ -340,20 +407,20 @@ if __name__ == "__main__":
                 show_debug=True
             )
 
-            print(f"✓ llm_network_search节点执行成功")
-            print(f"  - 输出文档数: {len(result_state.get('docs', []))}")
-            print(f"  - 其他消息数: {len(result_state.get('other_messages', []))}")
+            logging.info(f"✓ llm_network_search节点执行成功")
+            logging.info(f"  - 输出文档数: {len(result_state.get('docs', []))}")
+            logging.info(f"  - 其他消息数: {len(result_state.get('other_messages', []))}")
             if len(result_state.get('docs', [])) > 0:
-                print(f"  - 第一个文档内容: {result_state.get('docs', [])[0].page_content[:100]}")
+                logging.info(f"  - 第一个文档内容: {result_state.get('docs', [])[0].page_content[:100]}")
 
         except Exception as e:
-            print(f"✗ llm_network_search节点执行失败: {e}")
+            logging.info(f"✗ llm_network_search节点执行失败: {e}")
             import traceback
 
             traceback.print_exc()
     else:
-        print("⚠ 前置条件不满足，跳过节点测试")
+        logging.info("⚠ 前置条件不满足，跳过节点测试")
 
-    print("\n" + "=" * 60)
-    print("测试完成")
-    print("=" * 60)
+    logging.info("\n" + "=" * 60)
+    logging.info("测试完成")
+    logging.info("=" * 60)
