@@ -8,13 +8,8 @@ if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
 # 尝试相对导入（当作为包导入时）
-from .web_search import llm_network_search, create_web_search_tool
-from .search_templates import PROMPT_TEMPLATES
-from .search_templates import get_prompt_template
-from .search_templates import register_prompt_template
-
+from .web_search import create_web_search_tool
 
 __all__ = [
-    'llm_network_search', 'create_web_search_tool',
-    'PROMPT_TEMPLATES', 'get_prompt_template'
+    'create_web_search_tool'
 ]
