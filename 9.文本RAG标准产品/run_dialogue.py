@@ -9,7 +9,7 @@ from app_config import APPConfig
 from recall.kgraph.kg_loader import KGraphConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
 from dialogue_agent import DialogueAgent
-from rag_loader import RAGConfigLoader
+from rag.rag_loader import RAGConfigLoader
 from utils import create_llm_client, create_embedding_client, create_reranker_client
 
 logging.basicConfig(level=logging.INFO)

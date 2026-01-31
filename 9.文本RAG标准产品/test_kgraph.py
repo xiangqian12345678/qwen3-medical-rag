@@ -6,8 +6,8 @@ import logging
 import sys
 from pathlib import Path
 
-from rag_loader import RAGConfigLoader
-from enhance.utils import create_llm_client
+from rag.rag_loader import RAGConfigLoader
+from utils import create_llm_client
 from utils import create_embedding_client
 
 # 添加项目路径

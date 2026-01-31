@@ -1,4 +1,4 @@
-from rag_config import RerankerConfig
+from rag.rag_config import RerankerConfig
 from utils import create_reranker_client
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 from recall.kgraph.kg_loader import KGraphConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
-from rag_loader import RAGConfigLoader
+from rag.rag_loader import RAGConfigLoader
 
 
 class APPConfig:

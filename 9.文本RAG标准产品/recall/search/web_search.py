@@ -1,23 +1,18 @@
 """网络搜索模块"""
-from langchain_classic.output_parsers import OutputFixingParser
 
 """网络搜索模块"""
 import logging
-import json
 from typing import List
-from typing_extensions import TypedDict
 
 from langchain.tools import tool
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, ToolMessage, SystemMessage, HumanMessage
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableLambda
+from langchain_core.messages import ToolMessage, SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
 from .search_templates import get_prompt_template
-from .search_utils import del_think, format_document_str, json_to_list_document, _should_call_tool
+from .search_utils import json_to_list_document, _should_call_tool
 from .web_searcher import get_ws, reset_kb
 
 
@@ -83,7 +78,8 @@ def llm_network_search(
         if hasattr(web_ai, 'tool_calls') and web_ai.tool_calls:
             logger.info(f"Tool calls数量: {len(web_ai.tool_calls)}")
             for i, tc in enumerate(web_ai.tool_calls):
-                logger.info(f"Tool call {i}: name={tc.get('name', 'N/A') if isinstance(tc, dict) else tc.name}, args={tc.get('args', {}) if isinstance(tc, dict) else tc.args}")
+                logger.info(
+                    f"Tool call {i}: name={tc.get('name', 'N/A') if isinstance(tc, dict) else tc.name}, args={tc.get('args', {}) if isinstance(tc, dict) else tc.args}")
                 if hasattr(tc, 'id'):
                     logger.info(f"  Tool call id: {tc.id}")
 
@@ -113,15 +109,18 @@ def llm_network_search(
                 tool_calls = getattr(web_ai, 'tool_calls', [])
                 if tool_calls and len(tool_calls) > 0:
                     tc = tool_calls[0]
-                    query = tc.get('args', {}).get('query') if isinstance(tc, dict) else (tc.args.get('query') if hasattr(tc, 'args') else None)
+                    query = tc.get('args', {}).get('query') if isinstance(tc, dict) else (
+                        tc.args.get('query') if hasattr(tc, 'args') else None)
                     if query:
                         # 直接调用原始工具（使用传递的 search_tool 参数）
                         if search_tool:
                             tool_result = search_tool.invoke(query)
                             tool_message = ToolMessage(
                                 content=tool_result,
-                                tool_call_id=tc.get('id') if isinstance(tc, dict) else (tc.id if hasattr(tc, 'id') else 'unknown'),
-                                name=tc.get('name') if isinstance(tc, dict) else (tc.name if hasattr(tc, 'name') else 'web_search')
+                                tool_call_id=tc.get('id') if isinstance(tc, dict) else (
+                                    tc.id if hasattr(tc, 'id') else 'unknown'),
+                                name=tc.get('name') if isinstance(tc, dict) else (
+                                    tc.name if hasattr(tc, 'name') else 'web_search')
                             )
                             tool_msgs = [tool_message]
                             state["other_messages"].append(tool_message)
@@ -136,7 +135,6 @@ def llm_network_search(
             except Exception as e:
                 logger.error(f"工具调用失败: {e}")
                 tool_msgs = []
-
 
             # 检查工具返回内容
             if tool_msgs and len(tool_msgs) > 0:
@@ -210,6 +208,8 @@ def create_web_search_tool(
                 "metadata": doc.metadata
             })
 
+        # 将字典列表转换为JSON字符串
+        import json
         json_str = json.dumps(results_dict, ensure_ascii=False)
         logger.info(f"返回JSON字符串长度: {len(json_str)}")
 

@@ -17,11 +17,6 @@ dense_fields:
   chunk:
     embed: true
     type: str
-#    provider: dashscope
-#    model: text-embedding-v2
-#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-#    dimension: 1536
     workers: 8
     index_field: chunk_dense
     index_type: HNSW
@@ -36,11 +31,6 @@ dense_fields:
   parent_chunk:
     embed: true
     type: str
-#    provider: dashscope
-#    model: text-embedding-v2
-#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-#    dimension: 1536
     workers: 8
     index_field: parent_chunk_dense
     index_type: HNSW
@@ -56,11 +46,6 @@ dense_fields:
   summary:
     embed: false
     type: str
-#    provider: dashscope
-#    model: text-embedding-v2
-#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-#    dimension: 1536
     workers: 8
     index_field: summary_dense
     index_type: HNSW
@@ -75,11 +60,6 @@ dense_fields:
   questions:
     embed: true
     type: list
-#    provider: dashscope
-#    model: text-embedding-v2
-#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-#    dimension: 1536
     workers: 8
     index_field: questions_dense
     index_type: HNSW

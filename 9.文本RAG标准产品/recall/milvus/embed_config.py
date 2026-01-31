@@ -21,12 +21,6 @@ class DenseFieldConfig(BaseModel):
     """稠密向量字段配置"""
     embed: bool = False
     type: Literal["str", "list"] = "str"
-
-    # provider: Literal["openai", "ollama", "dashscope"] = "ollama"
-    # model: str = "bge-m3:latest"
-    # api_key: Optional[str] = None
-    # base_url: str = "http://localhost:11434"
-    # dimension: int = 1024
     workers: int = 8
     index_field: str = ""
     index_type: Literal["HNSW", "IVF_FLAT", "IVF_PQ"] = "HNSW"

@@ -9,7 +9,6 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
-from sentence_transformers import CrossEncoder
 
 from answer.answer import generate_answer, AnswerState
 from app_config import APPConfig
@@ -21,7 +20,7 @@ from enhance.query_enhance import query_refine, generate_summary, query_rewrite
 from enhance.recall_enhance import generate_multi_queries, generate_superordinate_query, generate_hypothetical_answer, \
     generate_sub_queries
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
-from rag_config import AgentConfig
+from rag.rag_config import AgentConfig
 from recall_graph import RecallGraph
 
 

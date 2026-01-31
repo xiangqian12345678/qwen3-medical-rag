@@ -9,7 +9,7 @@ from typing import Any, Union
 
 import yaml
 
-from rag_config import RAGConfig
+from rag.rag_config import RAGConfig
 
 logger = logging.getLogger(__name__)
 

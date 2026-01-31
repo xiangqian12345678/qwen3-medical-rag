@@ -8,8 +8,8 @@ import sys
 import time
 from pathlib import Path
 
-from rag_loader import RAGConfigLoader
-from enhance.utils import create_llm_client
+from rag.rag_loader import RAGConfigLoader
+from utils import create_llm_client
 
 # 添加项目路径
 project_dir = Path(__file__).parent
@@ -246,7 +246,7 @@ class WebSearchTester:
 
         try:
             # 模拟一个完整的RAG流程中的网络搜索环节
-            test_state:WebSearchState = {
+            test_state: WebSearchState = {
                 "query": "人工智能在医疗领域的应用",
                 "docs": [],
                 "other_messages": [],

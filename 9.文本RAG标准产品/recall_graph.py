@@ -1,34 +1,20 @@
 """搜索图：用于执行单个查询的RAG检索流程"""
-import json
 import logging
-import sys
 from functools import partial
-from pathlib import Path
 from typing import List
 
-from dotenv import load_dotenv
-from langchain_core.embeddings import Embeddings
-
-from app_config import APPConfig
-from recall.kgraph.kg_loader import KGraphConfigLoader
-from recall.milvus.embed_loader import EmbedConfigLoader
-
-# 加载环境变量（优先级：.env文件 > 系统环境变量）
-project_root = Path(__file__).parent.parent
-env_file = project_root / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
 from typing_extensions import TypedDict
 
+from app_config import APPConfig
+
 logger = logging.getLogger(__name__)
 
 # 尝试相对导入（当作为包导入时）
-from utils import create_llm_client, create_embedding_client
 
 # 尝试相对导入（当作为包导入时）
 from recall.milvus import llm_db_search, create_db_search_tool
@@ -64,7 +50,7 @@ class RecallGraph:
         self.appConfig = app_config
 
         # 1.创建数据库检索工具
-        db_tool, db_llm, db_node = create_db_search_tool(app_config.milvus_config_loader, llm, embed_model = embed_model)
+        db_tool, db_llm, db_node = create_db_search_tool(app_config.milvus_config_loader, llm, embed_model=embed_model)
         self.db_search_tool = db_tool
         self.db_search_llm = db_llm
         self.db_tool_node = db_node
@@ -83,7 +69,8 @@ class RecallGraph:
 
         # 3.创建知识图谱搜索工具
         if app_config.agent_config.kgraph_search_enabled:
-            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader, llm, embed_model = embed_model)
+            kgraph_tool, kgraph_llm, kgraph_node = create_kgraph_search_tool(app_config.kgraph_config_loader, llm,
+                                                                             embed_model=embed_model)
             self.kgraph_search_tool = kgraph_tool
             self.kgraph_search_llm = kgraph_llm
             self.kgraph_tool_node = kgraph_node
@@ -252,121 +239,3 @@ class RecallGraph:
 
         out_state: RecallState = self.search_graph.invoke(init_state)
         return out_state.get("final", "") or out_state.get("answer", "") or "（空）"
-
-
-# =============================================================================
-# Main 函数
-# =============================================================================
-if __name__ == "__main__":
-    """
-    单代码执行样例
-
-    ============ 使用场景说明 ============
-
-    SearchGraph 是执行单个查询的RAG检索流程，适用于以下场景：
-    1. 独立的医疗问答：针对单个问题进行精确检索和回答
-    2. 多轮对话中的子查询：作为MultiDialogueAgent的底层组件处理拆分后的子查询
-    3. 快速验证：测试RAG系统和向量数据库的检索效果
-
-    ============ 运行前准备 ============
-
-    1. 确保 Milvus 向量数据库已启动并包含医疗知识数据
-       docker ps  # 查看milvus容器是否运行
-
-    2. 确保 Ollama 服务已启动并下载模型
-       ollama serve
-       ollama pull bge-m3:latest  # 嵌入模型
-       ollama pull qwen3:4b      # LLM模型
-
-    3. 确保配置文件路径正确（当前目录下的 rag_config.yaml）
-
-    ============ 运行方式 ============
-
-    方式1：直接执行当前文件
-    python agent/search_graph.py
-
-    方式2：在其他脚本中导入使用
-    from agent.search_graph import SearchGraph
-    from config.loader import ConfigLoader
-    from core.utils import create_llm_client
-
-    config = ConfigLoader().config
-    power_model = create_llm_client(config.llm)
-    search_graph = SearchGraph(config, power_model=power_model)
-    result = search_graph.answer("阿司匹林有哪些副作用？")
-    print(result)
-    """
-
-    import logging
-    from rag_loader import RAGConfigLoader
-
-    # 配置日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    logger.info("=" * 60)
-    logger.info("SearchGraph 单查询RAG系统")
-    logger.info("=" * 60)
-
-    try:
-        # 1. 加载配置
-        logger.info("\n[1/5] 加载配置...")
-        rag_config_loader = RAGConfigLoader()  # 与milvus_config 和 kgraph_config 的loader不同
-        milvus_config_loader = EmbedConfigLoader()
-        kgraph_config_loader = KGraphConfigLoader()
-        app_config = APPConfig(rag_config_loader=rag_config_loader,
-                               milvus_config_loader=milvus_config_loader,
-                               kgraph_config_loader=kgraph_config_loader)
-        rag_config = rag_config_loader.config
-
-        logger.info(f"配置加载成功!")
-        logger.info(f"  - Milvus: {milvus_config_loader.milvus.uri}")
-        logger.info(f"  - Collection: {milvus_config_loader.milvus.collection_name}")
-        logger.info(f"  - LLM: {rag_config.llm_config.model} ({rag_config.llm_config.provider})")
-        logger.info(f"  - 网络搜索: {'启用' if rag_config.agent_config.network_search_enabled else '禁用'}")
-
-        # 2. 创建LLM客户端和向量嵌入客户端
-        logger.info("\n[2/5] 创建LLM客户端和向量嵌入客户端...")
-        power_model = create_llm_client(rag_config.llm_config)
-        embed_model = create_embedding_client(rag_config.embed_config)
-        logger.info(f"LLM客户端创建成功!")
-
-        # 3. 初始化SearchGraph
-        logger.info("\n[3/5] 初始化SearchGraph...")
-        search_graph = RecallGraph(app_config, llm=power_model, embed_model=power_model)
-        search_graph.build_search_graph()
-        logger.info("SearchGraph初始化成功!")
-        logger.info(f"图结构: db_search -> web_search(可选) -> 图谱搜索(可选) -> rag -> judge(可选) -> finish")
-
-        # 4. 执行示例查询
-        logger.info("\n[4/5] 执行示例查询...")
-
-        # 示例查询列表（可根据需要修改或添加）
-        example_queries = [
-            "什么是高血压？",  # 触发向量检索+网络检索
-            "房颤的治疗目的是什么？"  # 触发图谱检索+网络检索+图谱检索
-        ]
-
-        # 选择要执行的查询（修改索引选择不同查询）
-        selected_query_index = 1
-        query = example_queries[selected_query_index]
-
-        logger.info(f"查询: {query}")
-        logger.info("-" * 60)
-
-        # 执行查询
-        result = search_graph.answer(query)
-
-        # 5. 输出结果
-        logger.info("\n[5/5] 查询结果:")
-        logger.info("=" * 60)
-        print(f"\n问题: {query}\n")
-        print(f"回答:\n{result}\n")
-        logger.info("=" * 60)
-        logger.info("查询完成!")
-
-    except Exception as e:
-        logger.error(f"\n执行失败: {e}", exc_info=True)
-        sys.exit(1)
