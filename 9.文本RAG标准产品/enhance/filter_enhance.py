@@ -1,9 +1,9 @@
 """多轮对话Agent：多轮医疗对话 + 规划式 RAG Agent"""
 import logging
+import time
 from typing import List
 
-from langchain_classic.retrievers.document_compressors import EmbeddingsFilter
-from langchain_classic.retrievers.document_compressors import LLMChainExtractor
+from langchain_classic.retrievers.document_compressors import LLMChainExtractor, EmbeddingsFilter
 from langchain_classic.retrievers.document_compressors import LLMChainFilter
 from langchain_community.document_transformers import EmbeddingsRedundantFilter
 from langchain_core.documents import Document
@@ -19,6 +19,8 @@ def filter_low_correction_content(query: str, docs: List[Document], llm: BaseCha
     """
         压缩过滤-过滤无关内容
     """
+    start_time = time.time()
+
     # 直接对检索结果进行压缩
     compressor = LLMChainExtractor.from_llm(llm)
 
@@ -30,6 +32,9 @@ def filter_low_correction_content(query: str, docs: List[Document], llm: BaseCha
 
     compressed_docs_list: List[Document] = list(compressed_docs)
 
+    generate_time = time.time() - start_time
+    logger.info(f"  filter_low_correction_content: {{'generate_time': {generate_time:.3f}, 'docs_count': {len(compressed_docs_list)}}}")
+
     return compressed_docs_list
 
 
@@ -38,10 +43,15 @@ def filter_low_correction_doc_llm(query: str, docs: List[Document], llm: BaseCha
     """
         压缩过滤-过滤低相关文档
     """
+    start_time = time.time()
+
     # 直接对检索结果进行压缩
     _filter = LLMChainFilter.from_llm(llm)
     filtered_docs = _filter.compress_documents(docs, query)
     filter_docs_list: List[Document] = list(filtered_docs)
+
+    generate_time = time.time() - start_time
+    logger.info(f"  filter_low_correction_doc_llm: {{'generate_time': {generate_time:.3f}, 'docs_count': {len(filter_docs_list)}}}")
 
     return filter_docs_list
 

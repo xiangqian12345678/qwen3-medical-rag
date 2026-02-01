@@ -5,11 +5,10 @@ from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableLambda
 
 from .agent_state import AgentState, MultiQueries, SubQueries, SuperordinateQuery, HypotheticalAnswer
 from .enhance_templates import get_prompt_template
-from .utils import strip_think_get_tokens
+from .utils import invoke_with_timing
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +41,15 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
 
 
     #  构建执行链并调用 LLM
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["curr_input"],
-        "dialogue_messages": state["dialogue_messages"],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["curr_input"],
+            "dialogue_messages": state["dialogue_messages"],
+        },
+        stage_name="multi_query"
+    )
 
     #  解析 LLM 输出
     if not ai["msg"] or not ai["msg"].strip():
@@ -116,11 +119,15 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # ========================================================
     # 步骤 4: 构建执行链并调用 LLM
     # ========================================================
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["asking_messages"][-1][0].content,
-        "dialogue_messages": state["dialogue_messages"],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["asking_messages"][-1][0].content,
+            "dialogue_messages": state["dialogue_messages"],
+        },
+        stage_name="sub_query"
+    )
 
     # ========================================================
     # 步骤 5: 解析 LLM 输出
@@ -185,11 +192,15 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
     # ========================================================
     # 步骤 3: 构建执行链并调用 LLM
     # ========================================================
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["curr_input"],
-        "dialogue_messages": state["dialogue_messages"],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["curr_input"],
+            "dialogue_messages": state["dialogue_messages"],
+        },
+        stage_name="superordinate_query"
+    )
 
     # ========================================================
     # 步骤 4: 解析 LLM 输出
@@ -248,11 +259,15 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
     ])
 
     # 步骤 3: 构建执行链并调用 LLM
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["curr_input"],
-        "dialogue_messages": state["dialogue_messages"],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["curr_input"],
+            "dialogue_messages": state["dialogue_messages"],
+        },
+        stage_name="hypothetical_answer"
+    )
 
     # 步骤 4: 解析 LLM 输出
     if not ai["msg"] or not ai["msg"].strip():

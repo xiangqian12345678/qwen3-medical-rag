@@ -1,5 +1,6 @@
 """RAG回答生成模块"""
 import logging
+import time
 from typing import List
 
 from langchain_core.documents import Document
@@ -42,7 +43,10 @@ def generate_answer(
         )
     ]
 
+    # 计时并调用 LLM
+    start_time = time.time()
     rag_response = llm.invoke(prompt)
+    generate_time = time.time() - start_time
 
     # 调试：记录 LLM 原始输出
     if show_debug:
@@ -61,7 +65,25 @@ def generate_answer(
     if show_debug:
         logger.info(f"RAG回答: {rag_ai.content}")
 
-    # TODO性能信息添加
+    # 记录性能信息
+    msg_len = len(rag_response.content)
+    try:
+        msg_token_len = rag_response.usage_metadata["output_tokens"]
+    except Exception:
+        try:
+            msg_token_len = rag_response.response_metadata["token_usage"]["output_tokens"]
+        except Exception:
+            msg_token_len = 0
+
+    performance_info = {
+        "msg": rag_content,
+        "msg_len": msg_len,
+        "msg_token_len": msg_token_len,
+        "generate_time": generate_time
+    }
+
+    if show_debug:
+        logger.info(f"  answer: {performance_info}")
 
     state["answer"] = rag_ai.content
     return state

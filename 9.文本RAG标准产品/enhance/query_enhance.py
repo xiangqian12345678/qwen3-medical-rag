@@ -3,31 +3,20 @@ import logging
 
 from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import (
-    HumanMessage, AIMessage
-)
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
 
 from .agent_state import AgentState, AskMess, RewriteQuery
 from .enhance_templates import get_prompt_template
-from .utils import strip_think_get_tokens
+from .utils import invoke_with_timing
 
 logger = logging.getLogger(__name__)
 
 
 # 查询增强
-# 1.意图识别 这部分还没有想好
-class Intent(BaseModel):
-    """LLM 用于判断是否需要拆分多个子查询的结构"""
-    intent: str = Field(
-        default="",
-        description="意图"
-    )
-
-
+# 1.意图识别（暂未实现）
 def intent_recognition(state: AgentState, llm: BaseChatModel) -> AgentState:
     """
     根据业务补充，这部分需要大量业务抽象，主要针对milvus
@@ -82,11 +71,15 @@ def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
     # ========================================================
     # 步骤 4: 构建执行链并调用 LLM
     # ========================================================
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["asking_messages"][-1][0].content,
-        "dialogue_messages": state["dialogue_messages"],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["asking_messages"][-1][0].content,
+            "dialogue_messages": state["dialogue_messages"],
+        },
+        stage_name="rewrite_query"
+    )
 
     # ========================================================
     # 步骤 5: 解析 LLM 输出
@@ -175,11 +168,15 @@ def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
     #     "msg_token_len": 35,
     #     "generate_time": 0.8
     #   }
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        "background_info": state["background_info"],
-        "question": state["curr_input"],
-        "asking_history": curr_ask_history,
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            "background_info": state["background_info"],
+            "question": state["curr_input"],
+            "asking_history": curr_ask_history,
+        },
+        stage_name="ask"
+    )
 
     # ========================================================
     # 步骤 5: 将当前用户输入记录到对话历史
@@ -291,12 +288,16 @@ def generate_summary(state: AgentState, llm: BaseChatModel) -> AgentState:
     #     "msg_token_len": 15,
     #     "generate_time": 0.5
     #   }
-    ai = (prompt | llm | RunnableLambda(strip_think_get_tokens)).invoke({
-        # 获取最后一轮追问的原始问题（asking_messages[-1][0] 是该轮首次用户输入）
-        "question": state["asking_messages"][-1][0].content,
-        # 获取最后一轮追问的完整对话历史（包含用户和AI的交互）
-        "asking_history": state["asking_messages"][-1],
-    })
+    ai = invoke_with_timing(
+        (prompt | llm),
+        {
+            # 获取最后一轮追问的原始问题（asking_messages[-1][0] 是该轮首次用户输入）
+            "question": state["asking_messages"][-1][0].content,
+            # 获取最后一轮追问的完整对话历史（包含用户和AI的交互）
+            "asking_history": state["asking_messages"][-1],
+        },
+        stage_name="extract"
+    )
 
     # ========================================================
     # 步骤 3: 更新状态

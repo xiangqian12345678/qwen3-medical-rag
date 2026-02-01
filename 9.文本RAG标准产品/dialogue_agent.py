@@ -1,3 +1,5 @@
+import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from typing import List
@@ -20,8 +22,12 @@ from enhance.query_enhance import query_refine, generate_summary, query_rewrite
 from enhance.recall_enhance import generate_multi_queries, generate_superordinate_query, generate_hypothetical_answer, \
     generate_sub_queries
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
-from rag.rag_config import AgentConfig
 from integrated_recall import IntegratedRecall
+from rag.rag_config import AgentConfig
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 class DialogueAgent:
@@ -139,6 +145,8 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()
 
+    start_time = time.time()
+
     # 1.定义query检索函数
     def _run_one(single_query: str) -> List[Document]:
         docs = recall_graph.search(query=single_query)
@@ -168,8 +176,8 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     if (agent_config.generate_sub_queries_enabled
             and sub_queries.need_split
             and len(sub_queries.queries) > 0):
-        doc_list_list: List[List[Document]] = _parallel_recall(query_list=sub_queries.queries,
-                                                               max_parallel=cpu_count)
+        doc_list_list: List[List[Document]] = (
+            _parallel_recall(query_list=sub_queries.queries, max_parallel=cpu_count))
         new_state["sub_query_results"] = doc_list_list
 
     # 3 处理rewrite_query
@@ -181,8 +189,8 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     # 4 处理multi_queries
     multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
     if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
-        doc_list_list: List[List[Document]] = _parallel_recall(query_list=multi_queries.queries,
-                                                               max_parallel=cpu_count)
+        doc_list_list: List[List[Document]] = (
+            _parallel_recall(query_list=multi_queries.queries, max_parallel=cpu_count))
         new_state["multi_query_docs"] = doc_list_list
 
     # 5 处理superordinate_query
@@ -196,6 +204,9 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
         docs: List[Document] = _run_one(hypothetical_answer.hypothetical_answer)
         new_state["hypothetical_answer_docs"] = docs
+
+    elapsed_time = time.time() - start_time
+    logger.info(f"召回耗时: {elapsed_time:.2f}秒")
 
     return new_state
 

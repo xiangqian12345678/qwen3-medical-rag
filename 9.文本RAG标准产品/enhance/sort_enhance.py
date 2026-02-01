@@ -26,6 +26,8 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: DashScopeRerank) -> 
     if not docs:
         return []
 
+    start_time = time.time()
+
     # 按查询分组文档
     query_to_docs = {}
     for doc in docs:
@@ -49,13 +51,17 @@ def sort_docs_cross_encoder(docs: List[Document], reranker: DashScopeRerank) -> 
     # 如果所有文档的查询相同，使用API返回的排序结果
     # 否则按文档原始查询对应的分数进行排序
     if len(query_to_docs) == 1:
-        return all_reranked_docs
+        sorted_docs = all_reranked_docs
     else:
         # 多个查询的情况，按分数排序
         scores = [doc.metadata.get("relevance_score", 0) for doc in all_reranked_docs]
         sorted_indices = np.argsort(scores)[::-1]
         sorted_docs = [all_reranked_docs[i] for i in sorted_indices]
-        return sorted_docs
+
+    elapsed_time = time.time() - start_time
+    logger.info(f"cross_encoder重排序总耗时: {elapsed_time:.2f}秒, 输入文档数: {len(docs)}, 输出文档数: {len(sorted_docs)}")
+
+    return sorted_docs
 
 
 def _compress_documents_with_retry(
@@ -78,14 +84,17 @@ def _compress_documents_with_retry(
     Returns:
         重排序后的文档列表
     """
+    total_start_time = time.time()
     for attempt in range(max_retries):
         try:
             logger.info(f"重排序文档数量: {len(documents)}, 尝试: {attempt + 1}/{max_retries}")
+            start_time = time.time()
             results = reranker.compress_documents(
                 documents=documents,
                 query=query
             )
-            logger.info(f"重排序成功，返回 {len(results)} 条文档")
+            elapsed_time = time.time() - start_time
+            logger.info(f"重排序成功，返回 {len(results)} 条文档, 耗时: {elapsed_time:.2f}秒")
             return results
         except Exception as e:
             if attempt < max_retries - 1:
@@ -95,6 +104,8 @@ def _compress_documents_with_retry(
             else:
                 logger.error(f"重排序失败，已达最大重试次数 {max_retries}: {e}")
                 # 返回原始文档列表
+                elapsed_time = time.time() - total_start_time
+                logger.warning(f"重排序失败，返回原始文档，总耗时: {elapsed_time:.2f}秒")
                 return documents
 
 
@@ -109,8 +120,13 @@ def sort_docs_by_loss_of_location(docs: List[Document]) -> List[Document]:
     Returns:
         Tuple[排序后的文档列表, 对应的分数列表]
     """
+    start_time = time.time()
+
     reordering = LongContextReorder()
     reordered_docs = reordering.transform_documents(docs)
     reordered_docs_list: List[Document] = list(reordered_docs)
+
+    elapsed_time = time.time() - start_time
+    logger.info(f"loss_of_location重排序耗时: {elapsed_time:.2f}秒, 输入文档数: {len(docs)}, 输出文档数: {len(reordered_docs_list)}")
 
     return reordered_docs_list
