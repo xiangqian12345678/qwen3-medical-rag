@@ -5,5 +5,5 @@ neo4j:
   password: "12345678"
   database: neo4j
   max_connection_lifetime: 3600
-  max_connection_pool_size: 50
+  max_connection_pool_size: 2
   connection_timeout: 30.0
