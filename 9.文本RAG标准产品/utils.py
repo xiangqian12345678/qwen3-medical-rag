@@ -1,5 +1,7 @@
 """工具函数"""
 import logging
+import time
+from typing import Any, Callable, Optional
 
 import httpx
 from langchain_community.chat_models import ChatTongyi
@@ -146,3 +148,68 @@ def create_reranker_client(config: RerankerConfig):
 
     else:
         raise ValueError(f"不支持的 Reranker 提供商: {config.provider}")
+
+
+def invoke_with_timing(
+    func: Callable,
+    *args,
+    stage_name: Optional[str] = None,
+    state: Optional[dict] = None,
+    **kwargs
+) -> Any:
+    """
+    带计时和性能日志的通用函数调用包装器
+
+    Args:
+        func: 要调用的函数
+        *args: 函数的位置参数
+        stage_name: 阶段名称（用于日志记录和性能记录），默认为函数名
+        state: Agent状态对象，如果提供会将性能信息记录到 state["performance"]
+        **kwargs: 函数的关键字参数
+
+    Returns:
+        函数的执行结果
+
+    Example:
+        # 简单使用
+        result = invoke_with_timing(
+            func=_parallel_recall,
+            query_list=sub_queries.queries,
+            max_parallel=cpu_count,
+            stage_name="parallel_recall"
+        )
+
+        # 记录到state
+        result = invoke_with_timing(
+            func=llm_chain.invoke,
+            inputs={"query": query},
+            stage_name="llm_call",
+            state=agent_state
+        )
+    """
+    # 确定阶段名称
+    if stage_name is None:
+        stage_name = func.__name__
+
+    # 记录开始时间
+    start_time = time.time()
+
+    # 执行函数
+    result = func(*args, **kwargs)
+
+    # 计算耗时
+    elapsed_time = time.time() - start_time
+
+    # 记录性能日志
+    logger.info(f"  {stage_name}: {elapsed_time:.2f}秒")
+
+    # 如果提供了state，将性能信息记录到performance列表
+    if state is not None and "performance" in state:
+        perf_info = {
+            "stage": stage_name,
+            "duration": elapsed_time,
+            "timestamp": time.time()
+        }
+        state["performance"].append(perf_info)
+
+    return result

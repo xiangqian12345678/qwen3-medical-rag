@@ -59,7 +59,7 @@ class WebSearcher:
                         )
                     )
 
-                    logger.info(f"成功解析 {len(docs)} 条文档")
+                logger.info(f"成功解析 {len(docs)} 条文档")
 
         except Exception as e:
             logger.error(f"搜索失败: {e}")

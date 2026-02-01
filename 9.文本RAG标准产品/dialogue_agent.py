@@ -24,6 +24,7 @@ from enhance.recall_enhance import generate_multi_queries, generate_superordinat
 from enhance.sort_enhance import sort_docs_cross_encoder, sort_docs_by_loss_of_location
 from integrated_recall import IntegratedRecall
 from rag.rag_config import AgentConfig
+from utils import invoke_with_timing
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -145,11 +146,9 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()
 
-    start_time = time.time()
-
     # 1.定义query检索函数
     def _run_one(single_query: str) -> List[Document]:
-        docs = recall_graph.search(query=single_query)
+        docs = recall_graph.search(query=single_query, agent_state=agent_state)
         return docs
 
     def _parallel_recall(query_list: List[str], max_parallel: int = 1) -> List[List[Document]]:
@@ -176,37 +175,60 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     if (agent_config.generate_sub_queries_enabled
             and sub_queries.need_split
             and len(sub_queries.queries) > 0):
-        doc_list_list: List[List[Document]] = (
-            _parallel_recall(query_list=sub_queries.queries, max_parallel=cpu_count))
+        doc_list_list: List[List[Document]] = invoke_with_timing(
+            func=_parallel_recall,
+            query_list=sub_queries.queries,
+            max_parallel=cpu_count,
+            stage_name="sub_query_parallel_recall",
+            state=agent_state
+        )
         new_state["sub_query_results"] = doc_list_list
 
     # 3 处理rewrite_query
     rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
     if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
-        docs: List[Document] = _run_one(rewrite_query.query)
+        docs: List[Document] = invoke_with_timing(
+            func=_run_one,
+            single_query=rewrite_query.query,
+            stage_name="rewrite_query_recall",
+            state=agent_state
+        )
+
         new_state["rewrite_query_docs"] = docs
 
     # 4 处理multi_queries
     multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
     if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
-        doc_list_list: List[List[Document]] = (
-            _parallel_recall(query_list=multi_queries.queries, max_parallel=cpu_count))
+        doc_list_list: List[List[Document]] = invoke_with_timing(
+            func=_parallel_recall,
+            query_list=multi_queries.queries,
+            max_parallel=cpu_count,
+            stage_name="multi_query_parallel_recall",
+            state=agent_state
+        )
         new_state["multi_query_docs"] = doc_list_list
 
     # 5 处理superordinate_query
     superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
     if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
-        docs: List[Document] = _run_one(superordinate_query.superordinate_query)
+        docs: List[Document] = invoke_with_timing(
+            func=_run_one,
+            single_query=superordinate_query.superordinate_query,
+            stage_name="superordinate_query_recall",
+            state=agent_state
+        )
         new_state["superordinate_query_docs"] = docs
 
     # 6 处理hypothetical_answer
     hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
     if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
-        docs: List[Document] = _run_one(hypothetical_answer.hypothetical_answer)
+        docs: List[Document] = invoke_with_timing(
+            func=_run_one,
+            single_query=hypothetical_answer.hypothetical_answer,
+            stage_name="hypothetical_answer_recall",
+            state=agent_state
+        )
         new_state["hypothetical_answer_docs"] = docs
-
-    elapsed_time = time.time() - start_time
-    logger.info(f"召回耗时: {elapsed_time:.2f}秒")
 
     return new_state
 
@@ -237,36 +259,67 @@ def _filter_enhance(agent_state: AgentState, agent_config: AgentConfig, embeddin
     new_sub_query_results = []
     sub_query_results = agent_state.get("sub_query_results", [])
     if sub_query_results and len(sub_query_results) > 0:
-        new_sub_query_results = _parallel_filter(queries_list=sub_query_results)
+        new_sub_query_results = invoke_with_timing(
+            func=_parallel_filter,
+            queries_list=sub_query_results,
+            stage_name="filter_sub_queries",
+            state=agent_state
+        )
 
     new_rewrite_query_docs = []
     rewrite_query_docs = agent_state.get("rewrite_query_docs", [])
     if rewrite_query_docs and len(rewrite_query_docs) > 0:
         query = rewrite_query_docs[0].metadata["query"]
-        new_rewrite_query_docs = _filter_by_similar(query=query, docs=rewrite_query_docs,
-                                                    agent_config=agent_config, embeddings_model=embeddings_model,
-                                                    llm=llm)
+        new_rewrite_query_docs = invoke_with_timing(
+            func=_filter_by_similar,
+            query=query,
+            docs=rewrite_query_docs,
+            agent_config=agent_config,
+            embeddings_model=embeddings_model,
+            llm=llm,
+            stage_name="filter_rewrite_query",
+            state=agent_state
+        )
 
     new_multi_query_docs = []
     multi_query_docs = agent_state.get("multi_query_docs", [])
     if multi_query_docs and len(multi_query_docs) > 0:
-        new_multi_query_docs = _parallel_filter(queries_list=multi_query_docs)
+        new_multi_query_docs = invoke_with_timing(
+            func=_parallel_filter,
+            queries_list=multi_query_docs,
+            stage_name="filter_multi_queries",
+            state=agent_state
+        )
 
     new_superordinate_query_docs = []
     superordinate_query_docs = agent_state.get("superordinate_query_docs", [])
     if superordinate_query_docs and len(superordinate_query_docs) > 0:
         query = superordinate_query_docs[0].metadata["query"]
-        new_superordinate_query_docs = _filter_by_similar(query=query, docs=superordinate_query_docs,
-                                                          agent_config=agent_config, embeddings_model=embeddings_model,
-                                                          llm=llm)
+        new_superordinate_query_docs = invoke_with_timing(
+            func=_filter_by_similar,
+            query=query,
+            docs=superordinate_query_docs,
+            agent_config=agent_config,
+            embeddings_model=embeddings_model,
+            llm=llm,
+            stage_name="filter_superordinate_query",
+            state=agent_state
+        )
 
     new_hypothetical_answer_docs = []
     hypothetical_answer_docs = agent_state.get("hypothetical_answer_docs", [])
     if hypothetical_answer_docs and len(hypothetical_answer_docs) > 0:
         query = hypothetical_answer_docs[0].metadata["query"]
-        new_hypothetical_answer_docs = _filter_by_similar(query=query, docs=hypothetical_answer_docs,
-                                                          agent_config=agent_config, embeddings_model=embeddings_model,
-                                                          llm=llm)
+        new_hypothetical_answer_docs = invoke_with_timing(
+            func=_filter_by_similar,
+            query=query,
+            docs=hypothetical_answer_docs,
+            agent_config=agent_config,
+            embeddings_model=embeddings_model,
+            llm=llm,
+            stage_name="filter_hypothetical_answer",
+            state=agent_state
+        )
 
     agent_state["sub_query_results"] = new_sub_query_results
     agent_state["rewrite_query_docs"] = new_rewrite_query_docs
@@ -325,17 +378,32 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
         docs.extend(agent_state.get("superordinate_query_docs", []))
     if agent_config.generate_hypothetical_answer_enabled:
         docs.extend(agent_state.get("hypothetical_answer_docs", []))
+
     # 2.排序
-    docs = _sort_deduplicate_and_rank(docs=docs, agent_config=agent_config, reranker=reranker)
+    docs = invoke_with_timing(
+        func=_sort_deduplicate_and_rank,
+        docs=docs,
+        agent_config=agent_config,
+        reranker=reranker,
+        stage_name="sort_deduplicate_and_rank",
+        state=agent_state
+    )
     agent_state["docs"] = docs
     return agent_state
 
 
-def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: DashScopeRerank) -> List[
+def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, reranker: DashScopeRerank,
+                               agent_state: AgentState = None) -> List[
     Document]:
     # 1.基于模型重排序
     if agent_config.sort_docs_cross_encoder_enabled:
-        docs = sort_docs_cross_encoder(docs, reranker)
+        docs = invoke_with_timing(
+            func=sort_docs_cross_encoder,
+            docs=docs,
+            reranker=reranker,
+            stage_name="sort_docs_cross_encoder",
+            state=agent_state
+        )
 
     # 2.过滤重复文档 如果做了冗余过滤，逻辑上是没有必要了
     docs_set = set()
@@ -347,7 +415,12 @@ def _sort_deduplicate_and_rank(docs: List[Document], agent_config: AgentConfig, 
 
     # 3.基于长文本的重排序
     if agent_config.sort_docs_by_loss_of_location_enabled:
-        new_docs = sort_docs_by_loss_of_location(new_docs)
+        new_docs = invoke_with_timing(
+            func=sort_docs_by_loss_of_location,
+            docs=new_docs,
+            stage_name="sort_docs_by_loss_of_location",
+            state=agent_state
+        )
 
     return new_docs
 
@@ -356,7 +429,7 @@ def _answer(state: AgentState, llm: BaseChatModel, show_debug) -> AgentState:
     answer_state = AnswerState(query=state["curr_input"], docs=state["docs"], )
 
     # 1. 生成回答
-    answer_state = generate_answer(answer_state, llm, show_debug)
+    answer_state = generate_answer(answer_state, llm, show_debug, agent_state=state)
     answer_str = answer_state.get("answer", "")
     state["final_answer"] = answer_str
 
@@ -373,9 +446,6 @@ def _answer(state: AgentState, llm: BaseChatModel, show_debug) -> AgentState:
         question = state["background_info"]  # 问题和问题补充后的总结，也是后续操作的关键
         question_answer = question + "\n" + answer_str
         state["multi_summary"].append(question_answer)
-
-    # 4. 确保历史消息不要超过一定数量
-
     return state
 
 
@@ -386,58 +456,13 @@ def route_ask_again(state: AgentState) -> str:
         else "pass"
     )
 
-
 def _history_clean(state: AgentState, keep_count: int = 10):
-    '''
-    # ---------- 对话与上下文 ----------
-    dialogue_messages: List[BaseMessage]  # 主对话历史
-    asking_messages: List[List[BaseMessage]]  # 每一轮追问形成一组子对话
-    background_info: str  # 从追问中抽取的摘要
-    curr_input: str  # 当前用户输入
-    multi_summary: List[str]  # 多轮对话摘要列表
-
-    ask_obj: AskMess  # 是否需要继续追问
-
-    # ---------- curr_input生成 ----------
-    query_results: List[Document]
-
-    # ---------- 子问题生成 ----------
-    sub_query: "SubQueries"  # 子查询规划结果
-    sub_query_results: List[List[Document]]  # 子查询执行结果
-
-    # ---------- 问题重构 ----------
-    rewrite_query: "RewriteQuery"  # 并行问题生成
-    rewrite_query_docs: List[Document]  # 改写问题执行结果
-
-    # ---------- 多问题生成 ----------
-    multi_query: "MultiQueries"  # 并行问题生成
-    multi_query_docs: List[List[Document]]  # 并行问题执行结果
-
-    # ---------- 上位问题生成 ----------
-    superordinate_query: "SuperordinateQuery"  # 上位问题生成
-    superordinate_query_docs: List[Document]  # 上位问题执行结果
-
-    # ---------- 假设性回答 ----------
-    hypothetical_answer: "HypotheticalAnswer"  # 假设性回答
-    hypothetical_answer_docs: List[Document]  # 假设性回答执行结果
-
-    # ---------- 一轮会话中最终检索到的文档 ----------
-    docs: List[Document]
-
-    # ---------- 控制变量 ----------
-    max_ask_num: int  # 最大追问轮次
-    curr_ask_num: int  # 当前已追问次数
-
-    # ---------- 输出 & 调试 ----------
-    final_answer: str  # 最终答案（可供 UI 使用）
-    performance: List[Any]  # 调试 / 性能信息
-    '''
-
     # dialogue_messages: List[BaseMessage]  # 主对话历史
     # asking_messages: List[List[BaseMessage]]  # 每一轮追问形成一组子对话
     # multi_summary: List[str]  # 多轮对话摘要列表
     # performance: List[Any]  # 调试 / 性能信息
     state["dialogue_messages"] = state["dialogue_messages"][-keep_count:]
     state["asking_messages"] = state["asking_messages"][-keep_count:]
-    state["multi_summary"] = state["multi_summary"][-keep_count / 2:]
-    state["performance"] = state["performance"][-keep_count:]
+    state["multi_summary"] = state["multi_summary"][-keep_count // 2:]
+    # 性能信息不截取，保留完整的性能监控数据
+    state["performance"] = []

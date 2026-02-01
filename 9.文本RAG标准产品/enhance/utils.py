@@ -59,7 +59,7 @@ def format_document_str(documents) -> str:
     return "".join(parts)
 
 
-def invoke_with_timing(llm_chain, inputs: dict, stage_name: str = "llm_call"):
+def invoke_with_timing(llm_chain, inputs: dict, stage_name: str = "llm_call", state: dict = None):
     """
     带计时和性能日志的 LLM 调用包装函数
 
@@ -67,6 +67,7 @@ def invoke_with_timing(llm_chain, inputs: dict, stage_name: str = "llm_call"):
         llm_chain: LLM 调用链（如 prompt | llm）
         inputs: 输入参数
         stage_name: 阶段名称（用于日志记录）
+        state: Agent状态对象，如果提供会将性能信息记录到 state["performance"]
 
     Returns:
         包含处理结果的字典，格式与 strip_think_get_tokens 返回值相同
@@ -78,6 +79,15 @@ def invoke_with_timing(llm_chain, inputs: dict, stage_name: str = "llm_call"):
     result = strip_think_get_tokens(ai_msg, generate_time=generate_time)
 
     # 记录性能日志
-    logger.info(f"  {stage_name}: {result}")
+    logger.info(f"  {stage_name}: {result['generate_time']:.2f}秒")
+
+    # 如果提供了state，将性能信息记录到performance列表
+    if state is not None and "performance" in state:
+        perf_info = {
+            "stage": stage_name,
+            "duration": generate_time,
+            "timestamp": time.time()
+        }
+        state["performance"].append(perf_info)
 
     return result

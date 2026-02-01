@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from typing_extensions import TypedDict
 
 from .answer_templates import get_prompt_template
-from .utils import format_document_str, del_think
+from .utils import format_document_str, del_think, record_timing_to_state
 
 
 class AnswerState(TypedDict, total=False):
@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 def generate_answer(
         state: "AnswerState",
         llm: BaseChatModel,
-        show_debug: bool
+        show_debug: bool,
+        agent_state: dict = None
 ) -> "AnswerState":
     if show_debug:
         logger.info(f"开始RAG...当前文档数量: {len(state.get('docs', []))}")
@@ -48,12 +49,33 @@ def generate_answer(
     rag_response = llm.invoke(prompt)
     generate_time = time.time() - start_time
 
+    # 记录耗时信息到 agent_state
+    record_timing_to_state(
+        stage_name="llm_generate_answer",
+        duration=generate_time,
+        state=agent_state,
+        additional_info={
+            "msg_len": len(rag_response.content),
+            "doc_count": len(state.get("docs", []))
+        }
+    )
+
     # 调试：记录 LLM 原始输出
     if show_debug:
         logger.info(f"LLM原始输出长度: {len(rag_response.content)}")
         logger.info(f"LLM原始输出(前200字符): {rag_response.content[:200]}")
 
+    # 计时并执行 del_think
+    del_think_start = time.time()
     rag_content = del_think(rag_response.content)
+    del_think_time = time.time() - del_think_start
+
+    # 记录 del_think 耗时
+    record_timing_to_state(
+        stage_name="del_think",
+        duration=del_think_time,
+        state=agent_state
+    )
 
     # 调试：记录 del_think 后的输出
     if show_debug:
@@ -65,7 +87,7 @@ def generate_answer(
     if show_debug:
         logger.info(f"RAG回答: {rag_ai.content}")
 
-    # 记录性能信息
+    # 记录性能信息（保持向后兼容）
     msg_len = len(rag_response.content)
     try:
         msg_token_len = rag_response.usage_metadata["output_tokens"]

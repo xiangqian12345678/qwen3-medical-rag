@@ -8,7 +8,7 @@ import logging
 from app_config import APPConfig
 from recall.kgraph.kg_loader import KGraphConfigLoader
 from recall.milvus.embed_loader import EmbedConfigLoader
-from dialogue_agent import DialogueAgent
+from dialogue_agent import DialogueAgent, _history_clean
 from rag.rag_loader import RAGConfigLoader
 from utils import create_llm_client, create_embedding_client, create_reranker_client
 
@@ -85,9 +85,18 @@ def main():
             # 输出性能信息
             logging.info("\n" + "-" * 50)
             logging.info("性能信息:")
-            for name, perf in state.get("performance", []):
-                logging.info(f"  {name}: {perf}")
-            logging.info("-" * 50)
+            for perf in state.get("performance", []):
+                if isinstance(perf, dict):
+                    stage = perf.get("stage", "unknown")
+                    duration = perf.get("duration", 0)
+                    logging.info(f"  {stage}: {duration:.2f}秒")
+                else:
+                    logging.info(f"  {perf}")
+            logging.info("\n" + "-" * 50)
+
+
+            # 确保历史消息不要超过一定数量
+            _history_clean(state)
 
     except KeyboardInterrupt:
         logging.info("\n\n用户中断，退出对话...")

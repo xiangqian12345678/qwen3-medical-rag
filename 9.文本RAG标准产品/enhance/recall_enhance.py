@@ -48,7 +48,8 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
             "question": state["curr_input"],
             "dialogue_messages": state["dialogue_messages"],
         },
-        stage_name="multi_query"
+        stage_name="multi_query",
+        state=state
     )
 
     #  解析 LLM 输出
@@ -126,7 +127,8 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
             "question": state["asking_messages"][-1][0].content,
             "dialogue_messages": state["dialogue_messages"],
         },
-        stage_name="sub_query"
+        stage_name="sub_query",
+        state=state
     )
 
     # ========================================================
@@ -199,7 +201,8 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
             "question": state["curr_input"],
             "dialogue_messages": state["dialogue_messages"],
         },
-        stage_name="superordinate_query"
+        stage_name="superordinate_query",
+        state=state
     )
 
     # ========================================================
@@ -266,7 +269,8 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
             "question": state["curr_input"],
             "dialogue_messages": state["dialogue_messages"],
         },
-        stage_name="hypothetical_answer"
+        stage_name="hypothetical_answer",
+        state=state
     )
 
     # 步骤 4: 解析 LLM 输出

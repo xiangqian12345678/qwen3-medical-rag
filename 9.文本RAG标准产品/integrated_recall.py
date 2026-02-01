@@ -1,5 +1,6 @@
 """搜索图：用于执行单个查询的RAG检索流程"""
 import logging
+import time
 from typing import List
 
 from langchain_core.documents import Document
@@ -8,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from typing_extensions import TypedDict
 
 from app_config import APPConfig
+from enhance.agent_state import AgentState
 from recall.kgraph import create_kgraph_search_tool
 from recall.kgraph.kg_utils import json_to_list_document as kg_json_to_list_document
 from recall.milvus import create_db_search_tool
@@ -71,23 +73,46 @@ class IntegratedRecall:
             self.kgraph_search_tool = None
             self.kgraph_search_llm = None
 
-    def search(self, query: str) -> List[Document]:
+    def search(self, query: str, agent_state: AgentState = None) -> List[Document]:
         docs: List[Document] = []
 
+        from utils import invoke_with_timing
+
         # 1. 调用数据库检索
-        tool_result = self.db_search_tool.invoke({"query": query})
+        def _db_search():
+            return self.db_search_tool.invoke({"query": query})
+
+        tool_result = invoke_with_timing(
+            func=_db_search,
+            stage_name="db_search",
+            state=agent_state
+        )
         db_docs = json_to_list_document(tool_result)
         docs.extend(db_docs)
 
         # 2. 调用网络检索
         if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
-            tool_result = self.network_search_tool.invoke(query)
+            def _web_search():
+                return self.network_search_tool.invoke(query)
+
+            tool_result = invoke_with_timing(
+                func=_web_search,
+                stage_name="web_search",
+                state=agent_state
+            )
             web_docs = web_json_to_list_document(tool_result)
             docs.extend(web_docs)
 
         # 3. 调用知识图谱检索
         if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_search_tool is not None:
-            tool_result = self.kgraph_search_tool.invoke(query)
+            def _kgraph_search():
+                return self.kgraph_search_tool.invoke(query)
+
+            tool_result = invoke_with_timing(
+                func=_kgraph_search,
+                stage_name="kgraph_search",
+                state=agent_state
+            )
             kg_docs = kg_json_to_list_document(tool_result)
             docs.extend(kg_docs)
 

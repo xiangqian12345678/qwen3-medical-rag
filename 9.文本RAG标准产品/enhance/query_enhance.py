@@ -78,7 +78,8 @@ def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
             "question": state["asking_messages"][-1][0].content,
             "dialogue_messages": state["dialogue_messages"],
         },
-        stage_name="rewrite_query"
+        stage_name="rewrite_query",
+        state=state
     )
 
     # ========================================================
@@ -107,7 +108,6 @@ def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 保存查询改写结果
     # 示例结果: state["sub_query"] = RewriteQuery(need_rewrite=True, rewrite_query="头痛伴随低烧的诊断标准")
     state["rewrite_query"] = rewrite_query
-    state["performance"].append(("rewrite_query", ai))
     return state
 
 
@@ -175,7 +175,8 @@ def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
             "question": state["curr_input"],
             "asking_history": curr_ask_history,
         },
-        stage_name="ask"
+        stage_name="ask",
+        state=state
     )
 
     # ========================================================
@@ -231,7 +232,6 @@ def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
         )
 
     # 记录性能数据和增加追问计数
-    state["performance"].append(("ask", ai))
     state["curr_ask_num"] += 1
     return state
 
@@ -296,7 +296,8 @@ def generate_summary(state: AgentState, llm: BaseChatModel) -> AgentState:
             # 获取最后一轮追问的完整对话历史（包含用户和AI的交互）
             "asking_history": state["asking_messages"][-1],
         },
-        stage_name="extract"
+        stage_name="extract",
+        state=state
     )
 
     # ========================================================
@@ -305,6 +306,4 @@ def generate_summary(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 将 LLM 抽取的背景信息保存到 state
     # 示例结果: state["background_info"] = "患者主诉头痛，持续3天，伴有低烧症状"
     state["background_info"] = ai["msg"]
-    # 记录性能数据（用于调试和监控）
-    state["performance"].append(("extract", ai))
     return state
