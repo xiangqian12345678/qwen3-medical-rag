@@ -108,7 +108,7 @@ def create_kgraph_search_tool(
         return None, None, None
 
     graph_searcher = get_graph_searcher(neo4j_conn, database=kgraph_config_loader.neo4j_config.database,
-                                        embed_model=embed_model)
+                                        embed_model=embed_model, top_k=cnt)
 
     @tool("kgraph_search")
     def kgraph_search(query: str) -> str:
@@ -146,9 +146,9 @@ def create_kgraph_search_tool(
     return kgraph_search_tool, kgraph_search_llm
 
 
-def get_graph_searcher(neo4j_conn: Neo4jConnection, database: str, embed_model: Embeddings) -> "GraphSearcher":
+def get_graph_searcher(neo4j_conn: Neo4jConnection, database: str, embed_model: Embeddings, top_k: int) -> "GraphSearcher":
     global _gs_instance
     if _gs_instance is None:
-        graph_searcher = GraphSearcher(neo4j_conn, database=database, embed_model=embed_model)
+        graph_searcher = GraphSearcher(neo4j_conn, database=database, embed_model=embed_model, top_k=top_k)
         _gs_instance = graph_searcher
     return _gs_instance

@@ -13,6 +13,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import NearestNeighbors
 
 from .kgraph_schema import kg_schema
 from .neo4j_connection import Neo4jConnection
@@ -29,7 +30,7 @@ class GraphSearcher:
     提供基于向量相似度和关键词的图谱检索功能，将查询结果转换为Document对象
     """
 
-    def __init__(self, connection: Neo4jConnection, database: str, embed_model: Embeddings):
+    def __init__(self, connection: Neo4jConnection, database: str, embed_model: Embeddings, top_k: int = 10):
         """
         初始化图谱检索器
 
@@ -37,6 +38,7 @@ class GraphSearcher:
             connection: Neo4j连接对象
             database: 数据库名称（可选）
             embed_model: 向量模型对象
+            top_k: 返回结果数量限制
         """
         connected = connection.connect()
         if not connected:
@@ -52,7 +54,6 @@ class GraphSearcher:
             self.driver = None
 
         # 初始化向量检索
-        # self.embedding_config = embedding_config
         self.entity_index = {
             "ids": [],
             "names": [],
@@ -60,6 +61,7 @@ class GraphSearcher:
             "embeddings": np.empty((0, 1536))  # 默认维度
         }
         self.embedding_client = embed_model
+        self.top_k = top_k
 
         # 加载向量索引
         self._load_vector_index()
@@ -110,6 +112,11 @@ class GraphSearcher:
                             self.entity_index["embeddings"],
                             np.array(entity["embedding"]).reshape(1, -1)
                         ])
+
+                    max_k = max(1, self.entity_index["embeddings"].shape[0] - 1)
+                    neighbors = min(self.top_k, max_k)
+                    self.entity_ann = NearestNeighbors(n_neighbors=neighbors, metric='cosine')
+                    self.entity_ann.fit(self.entity_index["embeddings"])
 
                     logger.info(f"成功加载 {len(self.entity_index['ids'])} 个实体向量索引")
                 else:
@@ -427,16 +434,16 @@ class GraphSearcher:
 
         # 构建提示词
         prompt = f"""
-你是一个专业的知识图谱工程师，请从以下文本中提取实体，严格按照以下要求：
-1. 只提取文本中明确提到的实体
-2. 使用JSON格式输出，包含一个列表："entities"
-3. 实体格式：{{"id": "唯一ID", "name": "实体名称", "type": "实体类型", "properties": {{"属性名": "属性值"}}}}
-4. 实体类型必须是以下之一：{', '.join(entity_types)}
-5. 如果没有找到实体，返回空列表
-
-文本内容：
-{query_text}
-"""
+        你是一个专业的知识图谱工程师，请从以下文本中提取实体，严格按照以下要求：
+        1. 只提取文本中明确提到的实体
+        2. 使用JSON格式输出，包含一个列表："entities"
+        3. 实体格式：{{"id": "唯一ID", "name": "实体名称", "type": "实体类型", "properties": {{"属性名": "属性值"}}}}
+        4. 实体类型必须是以下之一：{', '.join(entity_types)}
+        5. 如果没有找到实体，返回空列表
+        
+        文本内容：
+        {query_text}
+        """
 
         try:
             # 调用大模型
@@ -451,8 +458,8 @@ class GraphSearcher:
             # 解析JSON响应
             entities = self._parse_json_response(content).get("entities", [])
             logger.debug(f"大模型提取到 {len(entities)} 个实体")
-            return entities
 
+            return entities
         except Exception as e:
             logger.error(f"大模型实体提取失败，回退到简单分词: {e}")
             # 回退到简单分词
@@ -545,9 +552,27 @@ class GraphSearcher:
             query_embedding = self.embedding_client.embed_query(entity_text)
             query_vector = np.array(query_embedding).reshape(1, -1)
 
-            # 计算相似度
-            similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
+            # 使用ANN模型检索
+            if self.entity_ann:
+                distances, indices = self.entity_ann.kneighbors(query_vector)
 
+                similar_entities = []
+                for idx, dist in zip(indices[0], distances[0]):
+                    similarity = 1 - dist
+
+                    if similarity >= threshold:
+                        similar_entities.append({
+                            "id": self.entity_index["ids"][idx],
+                            "name": self.entity_index["names"][idx],
+                            "type": self.entity_index["types"][idx],
+                            "similarity": similarity
+                        })
+
+                # 排序并截取top_k
+                similar_entities.sort(key=lambda x: x["similarity"], reverse=True)
+                return similar_entities[:top_k]
+
+            similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
             entities = []
             for idx, sim in enumerate(similarities):
                 if sim >= threshold:
