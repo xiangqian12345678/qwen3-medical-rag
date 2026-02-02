@@ -3,24 +3,14 @@
 基于 kgraph/kgraph_search.py 的 main 函数逻辑
 """
 import logging
-import sys
-from pathlib import Path
 
 from rag.rag_loader import RAGConfigLoader
-from utils import create_llm_client
-from utils import create_embedding_client
-
-# 添加项目路径
-project_dir = Path(__file__).parent
-if str(project_dir) not in sys.path:
-    sys.path.insert(0, str(project_dir))
-
-from langchain_core.messages import HumanMessage, SystemMessage
-
-from recall.kgraph.kg_loader import KGraphConfigLoader
-from recall.kgraph.neo4j_connection import Neo4jConnection
-from recall.kgraph.kgraph_searcher import GraphSearcher
 from recall.kgraph import create_kgraph_search_tool
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.kgraph.kgraph_searcher import GraphSearcher
+from recall.kgraph.neo4j_connection import Neo4jConnection
+from utils import create_embedding_client
+from utils import create_llm_client
 
 # 配置日志
 logging.basicConfig(
@@ -42,13 +32,12 @@ class KGraphSearchTester:
         self.llm = None
         self.kgraph_tool = None
         self.kgraph_llm = None
-        self.kgraph_tool_node = None
 
     def setup(self):
         """设置测试环境"""
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
         logger.info("初始化知识图谱测试环境")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         try:
             # 加载配置
@@ -72,13 +61,8 @@ class KGraphSearchTester:
             self.embed_model = create_embedding_client(rag_config.embedding)
 
             # # 创建图谱检索器
-            # embedding_config = {
-            #     "provider": self.kgraphConfigLoader.get("embedding.provider", "ollama"),
-            #     "model": self.kgraphConfigLoader.get("embedding.model", "nomic-embed-text"),
-            #     "api_key": self.kgraphConfigLoader.get("embedding.api_key", None),
-            #     "base_url": self.kgraphConfigLoader.get("embedding.base_url", "http://localhost:11434/v1")
-            # }
-            self.graph_searcher = GraphSearcher(self.neo4j_conn, database=self.kgraphConfigLoader.neo4j_config.database, embed_model=self.embed_model)
+            self.graph_searcher = GraphSearcher(self.neo4j_conn, database=self.kgraphConfigLoader.neo4j_config.database,
+                                                embed_model=self.embed_model)
             logger.info("✓ 图谱检索器创建成功")
 
             rag_config = RAGConfigLoader().config
@@ -88,9 +72,8 @@ class KGraphSearchTester:
             logger.info("✓ LLM初始化成功")
 
             # 创建检索工具
-            self.kgraph_tool, self.kgraph_llm = create_kgraph_search_tool(
-                self.kgraphConfigLoader, power_model,self.embed_model
-            )
+            self.kgraph_tool, self.kgraph_llm \
+                = create_kgraph_search_tool(self.kgraphConfigLoader, power_model, self.embed_model)
 
             if self.kgraph_tool is None:
                 logger.warning("⚠ 图谱检索工具未启用")
@@ -109,11 +92,11 @@ class KGraphSearchTester:
         """测试1: query检索（关键词检索）"""
         logger.info("\n" + "=" * 60)
         logger.info("测试1: 关键词检索")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         try:
             logger.info(f"搜索关键词: '{query}'")
-            result = self.graph_searcher.search_graph_by_query(query, top_k=top_k)
+            result = self.graph_searcher.search_graph_by_query(query, power_model=self.llm)
 
             content = result.get("content", "")
             vdb_results = result.get("vdb_results", [])
@@ -139,7 +122,7 @@ class KGraphSearchTester:
         """测试2: 关系检索"""
         logger.info("\n" + "=" * 60)
         logger.info("测试2: 关系检索")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         try:
             logger.info(f"查询实体: '{entity_name}' 的关系")
@@ -163,7 +146,7 @@ class KGraphSearchTester:
         """测试3: 关键词检索（综合图谱检索）"""
         logger.info("\n" + "=" * 60)
         logger.info("测试3: 综合图谱检索")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         try:
             logger.info(f"综合检索关键词: '{keyword}'")
@@ -187,7 +170,7 @@ class KGraphSearchTester:
         """测试4: 创建检索工具并调用"""
         logger.info("\n" + "=" * 60)
         logger.info("测试4: 检索工具调用")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         try:
             if self.kgraph_tool is None:
@@ -213,13 +196,11 @@ class KGraphSearchTester:
             traceback.print_exc()
             return False
 
-
-
     def run_all_tests(self):
         """运行所有测试"""
         logger.info("\n" + "=" * 60)
         logger.info("开始运行知识图谱检索测试套件")
-        logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
 
         # 设置测试环境
         if not self.setup():

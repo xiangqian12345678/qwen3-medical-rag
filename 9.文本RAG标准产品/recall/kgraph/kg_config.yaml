@@ -4,6 +4,7 @@ neo4j:
   user: neo4j
   password: "12345678"
   database: neo4j
+  max_recall_num: 10  # query中抽取最多max_recall_num个实体，每个实体召回的关系数中最多摘取max_recall_num个关系
   max_connection_lifetime: 3600
   max_connection_pool_size: 2
   connection_timeout: 30.0

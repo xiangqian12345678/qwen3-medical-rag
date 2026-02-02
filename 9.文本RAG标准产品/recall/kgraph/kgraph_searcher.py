@@ -2,13 +2,16 @@
 知识图谱检索模块
 提供基于Neo4j的图谱查询功能，支持向量相似度检索
 """
+import json
 import logging
+import re
 import time
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, TYPE_CHECKING
 
 import numpy as np
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from sklearn.metrics.pairwise import cosine_similarity
 
 from .kgraph_schema import kg_schema
@@ -18,7 +21,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
 
 
 class GraphSearcher:
@@ -311,8 +313,7 @@ class GraphSearcher:
 
     def search_graph_by_query(self,
                               query_text: str,
-                              entity_types: List[str] = None,
-                              relation_types: List[str] = None,
+                              power_model: BaseChatModel,
                               depth: int = 2,
                               similarity_threshold: float = 0.5,
                               top_k: int = 5) -> Dict:
@@ -326,12 +327,11 @@ class GraphSearcher:
         4. 组织结果为文档格式
 
         Args:
-            query_text: 查询文本
-            entity_types: 实体类型列表（可选）
-            relation_types: 关系类型列表（可选）
-            depth: 查询深度
-            similarity_threshold: 相似度阈值
-            top_k: 返回结果数量
+            :param query_text: 查询文本
+            :param power_model:
+            :param depth:  查询关系深度
+            :param similarity_threshold: 相似度阈值
+            :param top_k: 返回结果数量
 
         Returns:
             {
@@ -339,16 +339,17 @@ class GraphSearcher:
                 "document": "",     # 组织好的文档字符串
                 "metadata": {}      # 元数据信息
             }
+
         """
         start_time = time.time()
         logger.info(f"处理查询: {query_text}")
 
         # 1. 提取查询中的实体
-        entity_types = entity_types or kg_schema.get_entity_types()
-        relation_types = relation_types or kg_schema.get_relationship_types()
+        entity_types = kg_schema.get_entity_types()
+        relation_types = kg_schema.get_relationship_types()
 
-        entities = self._extract_entities_from_query(query_text, entity_types, relation_types)
-        logger.info(f"提取到 {len(entities)} 个实体")
+        entities = self._extract_entities_from_query(query_text, power_model=power_model, entity_types=entity_types)
+        logger.info(f"提取到 {len(entities)} 个实体, {entities}")
         for e in entities:
             logger.debug(f"  - {e.get('type', '未知')}: {e.get('name', '未知')}")
 
@@ -406,49 +407,119 @@ class GraphSearcher:
 
     def _extract_entities_from_query(self,
                                      query_text: str,
-                                     entity_types: List[str],
-                                     relation_types: List[str]) -> List[Dict]:
+                                     power_model: BaseChatModel,
+                                     entity_types: List[str]
+                                     ) -> List[Dict]:
         """
-        从查询文本中提取实体
+        从查询文本中提取实体（基于大模型）
+
+        Args:
+            query_text: 查询文本
+            power_model: 大模型实例（BaseChatModel）
+            entity_types: 实体类型列表
+
+        Returns:
+            实体列表，格式：[{"name": "实体名", "type": "实体类型", "id": "唯一ID", "properties": {}}]
+        """
+
+        # 获取关系类型（用于提示词）
+        relation_types = kg_schema.get_relationship_types()
+
+        # 构建提示词
+        prompt = f"""
+你是一个专业的知识图谱工程师，请从以下文本中提取实体，严格按照以下要求：
+1. 只提取文本中明确提到的实体
+2. 使用JSON格式输出，包含一个列表："entities"
+3. 实体格式：{{"id": "唯一ID", "name": "实体名称", "type": "实体类型", "properties": {{"属性名": "属性值"}}}}
+4. 实体类型必须是以下之一：{', '.join(entity_types)}
+5. 如果没有找到实体，返回空列表
+
+文本内容：
+{query_text}
+"""
+
+        try:
+            # 调用大模型
+            messages = [
+                {"role": "system", "content": "你是一个专业的知识图谱工程师"},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = power_model.invoke(messages)
+            content = response.content
+
+            # 解析JSON响应
+            entities = self._parse_json_response(content).get("entities", [])
+            logger.debug(f"大模型提取到 {len(entities)} 个实体")
+            return entities
+
+        except Exception as e:
+            logger.error(f"大模型实体提取失败，回退到简单分词: {e}")
+            # 回退到简单分词
+            return self._extract_entities_fallback(query_text, entity_types)
+
+    def _parse_json_response(self, content: str) -> Dict:
+        """
+        解析JSON格式的响应
+
+        Args:
+            content: 大模型返回的文本内容
+
+        Returns:
+            解析后的字典，格式：{"entities": [...]}
+        """
+        try:
+            # 查找JSON部分
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+
+            if json_start == -1 or json_end == 0:
+                logger.debug(f"未找到JSON内容: {content[:200]}...")
+                return {"entities": []}
+
+            json_str = content[json_start:json_end]
+
+            # 修复常见的JSON格式问题
+            json_str = re.sub(r',\s*]', ']', json_str)
+            json_str = re.sub(r',\s*}', '}', json_str)
+            json_str = re.sub(r"(\w+):", r'"\1":', json_str)
+
+            return json.loads(json_str)
+
+        except json.JSONDecodeError as e:
+            logger.debug(f"JSON解析失败: {e}")
+            return {"entities": []}
+
+    def _extract_entities_fallback(self, query_text: str, entity_types: List[str]) -> List[Dict]:
+        """
+        回退方法：使用简单分词提取实体
 
         Args:
             query_text: 查询文本
             entity_types: 实体类型列表
-            relation_types: 关系类型列表（未使用，保留用于未来扩展）
 
         Returns:
             实体列表
         """
-        """
-        从查询文本中提取实体
-
-        Args:
-            query_text: 查询文本
-            entity_types: 实体类型列表
-            relation_types: 关系类型列表
-
-        Returns:
-            实体列表
-        """
-        # 简化实现：如果没有配置LLM服务，使用简单的关键词匹配
-        # 如果需要完整的实体提取，需要集成LLM服务
-
-        # 如果向量检索不可用，尝试从查询中提取潜在的实体关键词
         entities = []
 
         # 简单的分词处理，提取可能的实体名
         # 移除标点符号并分割
         clean_text = query_text.replace('？', '').replace('?', '').replace('。', '').replace('.', '')
         clean_text = clean_text.replace('的', '').replace('是', '').replace('什么', '')
+        clean_text = clean_text.replace('怎么', '').replace('如何', '').replace('为什么', '')
         words = clean_text.split()
 
         for word in words:
             if len(word) >= 2:  # 只保留长度>=2的词
                 entities.append({
                     "name": word,
-                    "type": entity_types[0] if entity_types else "实体"
+                    "type": entity_types[0] if entity_types else "实体",
+                    "id": f"fallback_{len(entities)}",
+                    "properties": {}
                 })
 
+        logger.debug(f"回退方法提取到 {len(entities)} 个实体")
         return entities
 
     def _search_similar_entities(self,
@@ -538,4 +609,3 @@ class GraphSearcher:
         for i, doc in enumerate(vdb_results[:top_k]):
             vdb_desc += f"片段{i + 1}: {doc[:200]}...\n"
         return vdb_desc
-

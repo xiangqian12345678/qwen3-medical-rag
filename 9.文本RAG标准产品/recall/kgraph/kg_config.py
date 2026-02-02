@@ -8,6 +8,7 @@ class Neo4jConfig(BaseModel):
     user: str = "neo4j"
     password: str = ""
     database: str = "neo4j"
+    max_recall_num: int = 10
     max_connection_lifetime: int = 3600
     max_connection_pool_size: int = 50
     connection_timeout: float = 30.0

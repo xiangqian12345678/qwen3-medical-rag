@@ -99,7 +99,7 @@ def create_kgraph_search_tool(
         tuple: (kgraph_search_tool, kgraph_search_llm, kgraph_tool_node)
     """
     # 默认启用知识图谱搜索
-    cnt = 10  # 默认检索10条结果
+    cnt = kgraph_config_loader.neo4j_config.max_recall_num
     neo4j_conn = Neo4jConnection(kgraph_config_loader)  # 创建Neo4j连接
     connected = neo4j_conn.connect()
 
@@ -122,7 +122,7 @@ def create_kgraph_search_tool(
             检索结果的JSON字符串
         """
         # 使用向量检索
-        results = graph_searcher.search_graph_by_query(query_text=query, top_k=cnt)
+        results = graph_searcher.search_graph_by_query(query_text=query, power_model=power_model,top_k=cnt)
         vdb_results = results.get("vdb_results", [])
 
         # 转换为Document对象
