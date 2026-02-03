@@ -39,7 +39,6 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
         ("user", get_prompt_template("multi_query")["user"]),
     ])
 
-
     #  构建执行链并调用 LLM
     ai = invoke_with_timing(
         (prompt | llm),
@@ -66,7 +65,7 @@ def generate_multi_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
     # 保存查询规划结果
     new_state = state.copy()
     new_state["multi_query"] = multi_queries
-    new_state["performance"] = state["performance"] + [("multi_query", ai)]
+    # invoke_with_timing 已经记录到 performance，这里不需要重复记录
     return new_state
 
 
@@ -119,6 +118,8 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
 
     # ========================================================
     # 步骤 4: 构建执行链并调用 LLM
+    # state["curr_input"]	当前最新的用户输入
+    # state["asking_messages"][-1][0].content	本轮对话最初的用户输入
     # ========================================================
     ai = invoke_with_timing(
         (prompt | llm),
@@ -153,7 +154,7 @@ def generate_sub_queries(state: AgentState, llm: BaseChatModel) -> AgentState:
 
     new_state = state.copy()
     new_state["sub_query"] = sub_queries
-    new_state["performance"] = state["performance"] + [("sub_query", ai)]
+    # invoke_with_timing 已经记录到 performance，这里不需要重复记录
     return new_state
 
 
@@ -223,7 +224,7 @@ def generate_superordinate_query(state: AgentState, llm: BaseChatModel) -> Agent
     # ========================================================
     new_state = state.copy()
     new_state["superordinate_query"] = superordinate_query
-    new_state["performance"] = state["performance"] + [("superordinate_query", ai)]
+    # invoke_with_timing 已经记录到 performance，这里不需要重复记录
     return new_state
 
 
@@ -287,5 +288,5 @@ def generate_hypothetical_answer(state: AgentState, llm: BaseChatModel) -> Agent
     # 步骤 5: 更新状态
     new_state = state.copy()
     new_state["hypothetical_answer"] = hypothetical_answer
-    new_state["performance"] = state["performance"] + [("hypothetical_answer", ai)]
+    # invoke_with_timing 已经记录到 performance，这里不需要重复记录
     return new_state

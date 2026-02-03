@@ -27,7 +27,6 @@ class KnowledgeBase:
         self.collection_name = config.milvus.collection_name
 
         # 连接Milvus
-        logger.info(f"连接Milvus: {config.milvus.uri}")
         connections.connect(
             alias="default",
             uri=config.milvus.uri,

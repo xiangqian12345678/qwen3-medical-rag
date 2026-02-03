@@ -25,8 +25,6 @@ class WebSearcher:
         docs = []
 
         try:
-            logger.info(f"开始使用 DuckDuckGo 搜索: {query}, 结果数: {cnt}")
-
             with DDGS() as ddgs:
                 # 添加超时和重试机制
                 results = list(ddgs.text(query, max_results=cnt))

@@ -22,8 +22,8 @@ agent:
 
   # 召回强化
   # 1.生成子问题 2.生成多个问题 3.上位问题生成 4.假设性答案生成
-  generate_sub_queries_enabled: false
-  generate_multi_queries_enabled: false
+  generate_sub_queries_enabled: true
+  generate_multi_queries_enabled: true
   generate_superordinate_query_enabled: true
   generate_hypothetical_answer_enabled: true
 
@@ -33,10 +33,10 @@ agent:
   # 3.压缩-基于嵌入模型过滤低相关文档(2,3最多只能启动一个)
   # 4.冗余过滤-基于向量引擎
   filter_low_correction_content_enabled: true
-  filter_low_correction_doc_llm_enabled: false
+  filter_low_correction_doc_llm_enabled: true
   filter_low_correction_doc_embeddings_enabled: true
   low_correction_threshold: 0.65
-  filter_redundant_doc_embeddings_enabled: false
+  filter_redundant_doc_embeddings_enabled: true
   redundant_threshold: 0.95
 
   # 排序

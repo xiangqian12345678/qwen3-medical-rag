@@ -69,7 +69,7 @@ EXTRACT_USER_INFO_USER_PROMPT = """
 QUERY_SPLIT_SYSTEM_PROMPT = """
 你是一名资深的医务人员。
 任务：根据历史对话、摘要、以及所掌握的用户信息，结合用户当前问题，判断是否需要将查询拆解为多个独立的子查询。
-输出必须严格遵循结构： need_split(bool), sub_query(list[str])  
+输出必须严格遵循结构： need_split(bool), queries(list[str])  
 
 # 查询输出规范
 1) 如果用户问题口语化、模糊、或无法直接作为检索关键词使用，则需重写（need_split=True，填写rewrite_query）。
@@ -153,7 +153,7 @@ MULTI_QUERY_SYSTEM_PROMPT = """
 针对用户给出的问题，生成 5 个不同版本的改写问题，以便从向量数据库中检索相关文档。
 通过从多个角度改写用户问题，帮助用户克服基于距离相似度搜索的局限。
 请将这些替代问题用换行符分隔。
-输出必须严格遵循结构：mult_query(list[str])  
+输出必须严格遵循结构：queries(list[str])  
 
 # 查询输出规范
 1) 每一个查询都应该是一个独立的，表达方式不同的，语义一致的，意图清晰的，简短的，医学专业化的句子，便于向量检索。
@@ -269,9 +269,9 @@ PROMPT_TEMPLATES = {
         "user": SUPERORDINATE_QUERY_USER_PROMPT
     },
 
-    "hypothetical_answer":{ # 假设回答模板： 生成假设回答
-        "system":HYPOTHETICAL_ANSWER_SYSTEM_PROMPT,
-        "user":HYPOTHETICAL_ANSWER_USER_PROMPT
+    "hypothetical_answer": {  # 假设回答模板： 生成假设回答
+        "system": HYPOTHETICAL_ANSWER_SYSTEM_PROMPT,
+        "user": HYPOTHETICAL_ANSWER_USER_PROMPT
     }
 }
 

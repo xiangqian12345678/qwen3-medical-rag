@@ -3,6 +3,7 @@
 
 演示如何使用多轮对话Agent进行医疗问答
 """
+import json
 import logging
 
 from app_config import APPConfig
@@ -37,9 +38,7 @@ def main():
     agent = DialogueAgent(app_config=app_config, embeddings_model=embed_model, llm=llm_model, reranker=reranker)
 
     # 交互式对话
-    logging.info("=" * 50)
     logging.info("多轮对话Agent - 交互模式")
-    logging.info("=" * 50)
     logging.info("输入 'exit' 或 'quit' 退出对话\n")
 
     # user_input = "什么是房颤？"  会触发所有的召回
@@ -86,13 +85,8 @@ def main():
             logging.info("\n" + "-" * 50)
             logging.info("性能信息:")
             for perf in state.get("performance", []):
-                if isinstance(perf, dict):
-                    stage = perf.get("stage", "unknown")
-                    duration = perf.get("duration", 0)
-                    logging.info(f"  {stage}: {duration:.2f}秒")
-                else:
-                    logging.info(f"  {perf}")
-            logging.info("\n" + "-" * 50)
+                logging.info(json.dumps(perf, ensure_ascii=False, indent=2))
+            logging.info("-" * 50)
 
 
             # 确保历史消息不要超过一定数量

@@ -6,7 +6,6 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from pydantic import BaseModel, Field
 
 from .agent_state import AgentState, AskMess, RewriteQuery
 from .enhance_templates import get_prompt_template
@@ -91,11 +90,6 @@ def query_rewrite(state: AgentState, llm: BaseChatModel) -> AgentState:
         rewrite_query = RewriteQuery(query=state["asking_messages"][-1][0].content)
     else:
         try:
-            # 解析原理同 ask_judge 节点：
-            # 1) Prompt 中的 format_instructions 提供 RewriteQuery 的 JSON schema
-            # 2) LLM 根据 schema 生成结构化 JSON（如: {"need_rewrite": true, "rewrite_query": "..."}）
-            # 3) OutputFixingParser 容错解析，自动修复格式错误
-            # 4) 最终得到 rewriteQuery = RewriteQuery(need_rewrite=True, rewrite_query="...")
             rewrite_query: RewriteQuery = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")
@@ -154,20 +148,6 @@ def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
     # ========================================================
     # 步骤 4: 构建执行链并调用 LLM
     # ========================================================
-    # 执行链示例:
-    #   prompt（模板）→ 填充变量 → llm（生成）→ strip_think_get_tokens（清理）→ 返回字典
-    #
-    # 实际执行示例:
-    #   输入: {"background_info": "患者男,35岁", "question": "我头痛", "asking_history": []}
-    #   ↓ prompt 格式化后发送给 LLM
-    #   ↓ LLM 返回 AIMessage(content='{\n  "need_ask": true,\n  "questions": ["头痛持续多久了?", "有发热吗?"]\n}')
-    #   ↓ strip_think_get_tokens 处理
-    #   ai = {
-    #     "msg": '{\n  "need_ask": true,\n  "questions": ["头痛持续多久了?", "有发热吗?"]\n}',
-    #     "msg_len": 70,
-    #     "msg_token_len": 35,
-    #     "generate_time": 0.8
-    #   }
     ai = invoke_with_timing(
         (prompt | llm),
         {
@@ -198,16 +178,6 @@ def query_refine(state: AgentState, llm: BaseChatModel) -> AgentState:
         patch = AskMess(need_ask=False, questions=[])
     else:
         try:
-            # 为何能解析：
-            # 1) Prompt 中通过 format_instructions 告诉 LLM 输出符合 AskMess 结构的 JSON schema
-            #    format_instructions 示例:
-            #    {"properties": {"need_ask": {"title": "Need Ask", "type": "boolean"},
-            #                   "questions": {"title": "Questions", "type": "array", "items": {"type": "string"}}},
-            #     "required": ["need_ask"], "title": "AskMess", "type": "object"}
-            # 2) LLM 根据 schema 生成符合格式的 JSON（如: {"need_ask": true, "questions": ["..."]}）
-            # 3) PydanticOutputParser 将 JSON 文本解析为 AskMess 对象，自动进行类型验证和转换
-            # 4) OutputFixingParser 提供容错机制，如果格式轻微错误会自动调用 LLM 修复
-            # 5) 最终得到 patch = AskMess(need_ask=True, questions=["头痛持续多久了?", "有发热吗?"])
             patch: AskMess = fixing.parse(ai["msg"])
         except Exception as e:
             logger.error(f"解析 LLM 输出失败: {e}, 输出内容: {ai['msg'][:200]}")

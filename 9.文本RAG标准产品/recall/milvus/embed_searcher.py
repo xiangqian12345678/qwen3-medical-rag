@@ -50,7 +50,6 @@ class EmbedSearcher:
         self.collection_name = self.embedConfig.milvus.collection_name
 
         # 连接Milvus
-        logger.info(f"连接Milvus: {self.embedConfig.milvus.uri}")
         connections.connect(
             alias="default",
             uri=self.embedConfig.milvus.uri,
@@ -59,7 +58,6 @@ class EmbedSearcher:
 
         # 获取集合
         self.collection = Collection(self.collection_name)
-        logger.info(f"加载集合: {self.collection_name}")
 
         # 初始化向量处理器  00000
         self.field_processor = VectorFieldProcessor(self.embedConfig, embed_model=embed_model)

@@ -2,13 +2,19 @@
 RAG系统模块
 整合向量检索和知识图谱，生成最终答案
 """
+import logging
 from typing import Dict, List
+
+from config import kg_schema
+from embedding_service import EmbeddingService
+from llm_service import LLMService
 from neo4j_connection import Neo4jConnection
 from neo4j_query import Neo4jQuery
 from vector_search import VectorSearch
-from embedding_service import EmbeddingService
-from llm_service import LLMService
-from config import kg_schema
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 class RAGSystem:
@@ -125,7 +131,7 @@ class RAGSystem:
         import time
         start_time = time.time()
 
-        print(f"\n🔍 处理查询: {query_text}")
+        logger.info(f"\n🔍 处理查询: {query_text}")
 
         # 1. 提取查询中的实体
         # 如果没有指定实体类型和关系类型，从kg_schema.json读取
@@ -137,9 +143,6 @@ class RAGSystem:
         )
 
         entities = extraction_result.get("entities", [])
-        print(f"🔍 提取到 {len(entities)} 个实体:")
-        for e in entities:
-            print(f"  - {e.get('type', '未知')}: {e.get('name', '未知')}")
 
         # 2. 向量检索相似实体
         entity_texts = [
@@ -148,25 +151,19 @@ class RAGSystem:
         ]
 
         if not entity_texts:
-            print("⚠️ 没有提取到实体，无法进行向量检索")
             # 如果没有提取到实体，直接使用查询文本进行检索
             entity_texts = [query_text]
 
         all_similar_entity_ids = set()
         for entity_text in entity_texts:
-            print(f"🔍 搜索相似实体: {entity_text}")
             similar_entities = self.search.search_similar_entities(
                 entity_text,
                 threshold=similarity_threshold,
                 top_k=top_k
             )
 
-            print(f"  找到 {len(similar_entities)} 个相似实体")
             for entity in similar_entities:
                 all_similar_entity_ids.add(entity["id"])
-                print(f"    - {entity['name']} ({entity['type']}): {entity['similarity']:.3f}")
-
-        print(f"🔍 找到 {len(all_similar_entity_ids)} 个相似实体")
 
         # 3. 知识图谱查询
         kg_results = []
@@ -176,7 +173,7 @@ class RAGSystem:
                 depth=depth
             )
 
-        print(f"📊 查询到 {len(kg_results)} 条关系")
+        logger.info(f"📊 查询到 {len(kg_results)} 条关系")
 
         # 4. 生成答案
         vdb_results = [result.get("source", "") for result in kg_results[:5]]

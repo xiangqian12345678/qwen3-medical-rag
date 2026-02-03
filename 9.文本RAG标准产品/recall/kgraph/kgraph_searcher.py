@@ -312,7 +312,6 @@ class GraphSearcher:
                 result = session.run(query, entity_ids=entity_ids)
                 records = [dict(record) for record in result]
                 result.consume()
-                logger.info(f"子图查询找到 {len(records)} 条关系")
                 return records
         except Exception as e:
             logger.error(f"子图查询失败: {e}")
@@ -349,7 +348,6 @@ class GraphSearcher:
 
         """
         start_time = time.time()
-        logger.info(f"处理查询: {query_text}")
 
         # 1. 提取查询中的实体
         entity_types = kg_schema.get_entity_types()
@@ -379,11 +377,8 @@ class GraphSearcher:
                 top_k=top_k
             )
 
-            logger.debug(f"  找到 {len(similar_entities)} 个相似实体")
             for entity in similar_entities:
                 all_similar_entity_ids.add(entity["id"])
-
-        logger.info(f"找到 {len(all_similar_entity_ids)} 个相似实体")
 
         # 3. 知识图谱查询
         kg_results = []
@@ -392,8 +387,6 @@ class GraphSearcher:
                 list(all_similar_entity_ids),
                 depth=depth
             )
-
-        logger.info(f"查询到 {len(kg_results)} 条关系")
 
         # 4. 组织结果为文档格式
         vdb_results = self._format_kg_results(kg_results)

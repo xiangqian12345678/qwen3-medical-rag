@@ -77,7 +77,7 @@ class DialogueAgent:
         # 召回增强
         graph.add_node("recall_enhance", partial(_recall_enhance, agent_config=self.agent_config, llm=self.llm))
         # 文档召回
-        graph.add_node("recall", partial(_recall_parallel, recall_graph=self.recall_graph, agent_config=self.agent_config))
+        graph.add_node("recall", partial(_recall, recall_graph=self.recall_graph, agent_config=self.agent_config))
         # 文档过滤
         graph.add_node("filter_enhance", partial(_filter_enhance, agent_config=self.agent_config,
                                                  embeddings_model=self.embeddings_model, llm=self.llm))
@@ -111,37 +111,143 @@ class DialogueAgent:
 
 
 def _query_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: BaseChatModel) -> AgentState:
-    # 1.总结对话背景信息
-    generate_summary(agent_state, llm)
+    """并行化的query增强处理，同时执行summary和query_rewrite任务"""
+    new_state = agent_state.copy()
+    start_time = time.time()
 
-    # 2.优化用户query
+    def _task_generate_summary(state: AgentState) -> None:
+        result = generate_summary(state, llm)
+        state["background_info"] = result["background_info"]
+
+    def _task_query_rewrite(state: AgentState) -> None:
+        if agent_config.query_rewrite_enabled:
+            result = query_rewrite(state, llm)
+            state["rewrite_query"] = result["rewrite_query"]
+
+    # 创建任务列表，generate_summary始终执行，query_rewrite根据配置执行
+    tasks = [_task_generate_summary]
     if agent_config.query_rewrite_enabled:
-        query_rewrite(agent_state, llm)
+        tasks.append(_task_query_rewrite)
 
-    return agent_state
+    # 并行执行所有启用的任务
+    if tasks:
+        with ThreadPoolExecutor(max_workers=min(len(tasks), 2)) as executor:
+            futures = [executor.submit(task, new_state) for task in tasks]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Query enhance error: {e}")
+
+    elapsed_time = time.time() - start_time
+
+    # 收集query增强信息
+    query_info = {}
+
+    # summary 总是执行
+    query_info["background_info"] = new_state.get("background_info", "")
+
+    # query_rewrite 根据配置执行
+    if agent_config.query_rewrite_enabled:
+        rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
+        query_info["rewrite_query"] = rewrite_query.query
+
+    perf_info = {
+        "stage": "_query_enhance",
+        "duration": elapsed_time,
+        "timestamp": time.time(),
+        "query_info": query_info
+    }
+    new_state["performance"].append(perf_info)
+
+    return new_state
 
 
 def _recall_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: BaseChatModel) -> AgentState:
-    # 1.生成多个问题
+    """并行化的召回增强处理，同时执行多个查询生成任务"""
+    logger.info('\n' + '-' * 100)
+
+    new_state = agent_state.copy()
+    start_time = time.time()
+
+    def _task_multi_queries(state: AgentState) -> None:
+        if agent_config.generate_multi_queries_enabled:
+            result = generate_multi_queries(state, llm)
+            state["multi_query"] = result["multi_query"]
+
+    def _task_superordinate_query(state: AgentState) -> None:
+        if agent_config.generate_superordinate_query_enabled:
+            result = generate_superordinate_query(state, llm)
+            state["superordinate_query"] = result["superordinate_query"]
+
+    def _task_hypothetical_answer(state: AgentState) -> None:
+        if agent_config.generate_hypothetical_answer_enabled:
+            result = generate_hypothetical_answer(state, llm)
+            state["hypothetical_answer"] = result["hypothetical_answer"]
+
+    def _task_sub_queries(state: AgentState) -> None:
+        if agent_config.generate_sub_queries_enabled:
+            result = generate_sub_queries(state, llm)
+            state["sub_query"] = result["sub_query"]
+
+    # 创建任务列表，只包含启用的任务
+    tasks = []
     if agent_config.generate_multi_queries_enabled:
-        agent_state = generate_multi_queries(agent_state, llm)
-
-    # 2.生成上位词生成上位词    if agent_config.generate_multi_queries_enabled:
+        tasks.append(_task_multi_queries)
     if agent_config.generate_superordinate_query_enabled:
-        agent_state = generate_superordinate_query(agent_state, llm)
-
-    # 3.生成假设回答
+        tasks.append(_task_superordinate_query)
     if agent_config.generate_hypothetical_answer_enabled:
-        agent_state = generate_hypothetical_answer(agent_state, llm)
-
-    # 4.拆分成子问题
+        tasks.append(_task_hypothetical_answer)
     if agent_config.generate_sub_queries_enabled:
-        agent_state = generate_sub_queries(agent_state, llm)
+        tasks.append(_task_sub_queries)
 
-    return agent_state
+    # 并行执行所有启用的任务
+    if tasks:
+        with ThreadPoolExecutor(max_workers=min(len(tasks), 4)) as executor:
+            futures = [executor.submit(task, new_state) for task in tasks]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Recall enhance error: {e}")
+
+    elapsed_time = time.time() - start_time
+
+    # 收集各类强化query信息
+    query_info = {}
+
+    if agent_config.generate_multi_queries_enabled:
+        multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
+        query_info["multi_query"] = multi_queries.queries
+
+    if agent_config.generate_sub_queries_enabled:
+        sub_queries: SubQueries = new_state.get("sub_query", SubQueries(need_split=False, queries=[]))
+        query_info["sub_query"] = sub_queries.queries
+
+    if agent_config.generate_superordinate_query_enabled:
+        superordinate_query: SuperordinateQuery = new_state.get("superordinate_query",
+                                                                SuperordinateQuery(superordinate_query=""))
+        query_info["superordinate_query"] = superordinate_query.superordinate_query
+
+    if agent_config.generate_hypothetical_answer_enabled:
+        hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer",
+                                                                HypotheticalAnswer(hypothetical_answer=""))
+        query_info["hypothetical_answer"] = hypothetical_answer.hypothetical_answer
+
+    perf_info = {
+        "stage": "_recall_enhance_parallel",
+        "duration": elapsed_time,
+        "timestamp": time.time(),
+        "query_info": query_info
+    }
+    new_state["performance"].append(perf_info)
+
+    logger.info('\n' + '-' * 100)
+    logger.info(f"recall_enhance query_info: {query_info}")
+    return new_state
 
 
-def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
+def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
     import os
     cpu_count = os.cpu_count()
     new_state = agent_state.copy()
@@ -185,6 +291,7 @@ def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", 
 
     def _process_rewrite_query() -> None:
         rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
+
         if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
             docs = invoke_with_timing(
                 func=_run_one,
@@ -196,6 +303,7 @@ def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", 
 
     def _process_multi_queries() -> None:
         multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
+
         if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
             doc_list_list = invoke_with_timing(
                 func=_parallel_recall,
@@ -208,6 +316,7 @@ def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", 
 
     def _process_superordinate_query() -> None:
         superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
+
         if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
             docs = invoke_with_timing(
                 func=_run_one,
@@ -219,6 +328,7 @@ def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", 
 
     def _process_hypothetical_answer() -> None:
         hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
+
         if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
             docs = invoke_with_timing(
                 func=_run_one,
@@ -243,105 +353,49 @@ def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", 
                 print(f'Recall error: {e}')
 
     elapsed_time = time.time() - start_time
+
+    # 收集各类召回的文档数统计
+    doc_count_info = {}
+
+    if agent_config.generate_sub_queries_enabled:
+        sub_query_results: List[List[Document]] = new_state.get("sub_query_results", [])
+        sub_doc_counts = [len(docs) for docs in sub_query_results]
+        doc_count_info["sub_query_doc_counts"] = sub_doc_counts
+        doc_count_info["sub_query_total_docs"] = sum(sub_doc_counts)
+
+    if agent_config.query_rewrite_enabled:
+        rewrite_query_docs: List[Document] = new_state.get("rewrite_query_docs", [])
+        doc_count_info["rewrite_query_doc_count"] = len(rewrite_query_docs)
+
+    if agent_config.generate_multi_queries_enabled:
+        multi_query_docs: List[List[Document]] = new_state.get("multi_query_docs", [])
+        multi_doc_counts = [len(docs) for docs in multi_query_docs]
+        doc_count_info["multi_query_doc_counts"] = multi_doc_counts
+        doc_count_info["multi_query_total_docs"] = sum(multi_doc_counts)
+
+    if agent_config.generate_superordinate_query_enabled:
+        superordinate_query_docs: List[Document] = new_state.get("superordinate_query_docs", [])
+        doc_count_info["superordinate_query_doc_count"] = len(superordinate_query_docs)
+
+    if agent_config.generate_hypothetical_answer_enabled:
+        hypothetical_answer_docs: List[Document] = new_state.get("hypothetical_answer_docs", [])
+        doc_count_info["hypothetical_answer_doc_count"] = len(hypothetical_answer_docs)
+
+    # 计算总文档数
+    total_docs = doc_count_info.get("sub_query_total_docs", 0) + \
+                 doc_count_info.get("rewrite_query_doc_count", 0) + \
+                 doc_count_info.get("multi_query_total_docs", 0) + \
+                 doc_count_info.get("superordinate_query_doc_count", 0) + \
+                 doc_count_info.get("hypothetical_answer_doc_count", 0)
+    doc_count_info["total_docs"] = total_docs
+
     perf_info = {
         "stage": "_recall_parallel",
         "duration": elapsed_time,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "doc_count_info": doc_count_info
     }
     new_state["performance"].append(perf_info)
-
-    return new_state
-
-
-def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
-    import os
-    cpu_count = os.cpu_count()
-    new_state = agent_state.copy()
-
-    # 1.定义query检索函数
-    def _run_one(single_query: str) -> List[Document]:
-        # docs = recall_graph.search(query=single_query, agent_state=agent_state)
-        docs = recall_graph.search_parallel(query=single_query, agent_state=agent_state)
-        return docs
-
-    def _parallel_recall(query_list: List[str], max_parallel: int = 1) -> List[List[Document]]:
-        all_docs: List[List[Document]] = []
-        with ThreadPoolExecutor(max_workers=min(len(query_list), max_parallel)) as recall_executor:
-
-            future_list = []
-            for single_query in query_list:
-                future_list.append(recall_executor.submit(_run_one, single_query))
-
-            for single_future in as_completed(future_list):
-                try:
-                    docs = single_future.result()
-                    all_docs.append(docs)
-                except Exception as e:
-                    print('generated an exception: %s' % e)
-        return all_docs
-
-    def is_empty(s: str | None) -> bool:
-        return not s or not s.strip()
-
-    # 2. 判断是否拆分为了子问题，如果是只处理之问题检索
-    sub_queries: SubQueries = new_state.get("sub_query", SubQueries(need_split=False, queries=[]))
-    if (agent_config.generate_sub_queries_enabled
-            and sub_queries.need_split
-            and len(sub_queries.queries) > 0):
-        doc_list_list: List[List[Document]] = invoke_with_timing(
-            func=_parallel_recall,
-            query_list=sub_queries.queries,
-            max_parallel=cpu_count,
-            stage_name="sub_query_parallel_recall",
-            state=agent_state
-        )
-        new_state["sub_query_results"] = doc_list_list
-
-    # 3 处理rewrite_query
-    rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
-    if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
-        docs: List[Document] = invoke_with_timing(
-            func=_run_one,
-            single_query=rewrite_query.query,
-            stage_name="rewrite_query_recall",
-            state=agent_state
-        )
-
-        new_state["rewrite_query_docs"] = docs
-
-    # 4 处理multi_queries
-    multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
-    if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
-        doc_list_list: List[List[Document]] = invoke_with_timing(
-            func=_parallel_recall,
-            query_list=multi_queries.queries,
-            max_parallel=cpu_count,
-            stage_name="multi_query_parallel_recall",
-            state=agent_state
-        )
-        new_state["multi_query_docs"] = doc_list_list
-
-    # 5 处理superordinate_query
-    superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
-    if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
-        docs: List[Document] = invoke_with_timing(
-            func=_run_one,
-            single_query=superordinate_query.superordinate_query,
-            stage_name="superordinate_query_recall",
-            state=agent_state
-        )
-        new_state["superordinate_query_docs"] = docs
-
-    # 6 处理hypothetical_answer
-    hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
-    if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
-        docs: List[Document] = invoke_with_timing(
-            func=_run_one,
-            single_query=hypothetical_answer.hypothetical_answer,
-            stage_name="hypothetical_answer_recall",
-            state=agent_state
-        )
-        new_state["hypothetical_answer_docs"] = docs
 
     return new_state
 
@@ -475,6 +529,8 @@ def _filter_by_similar(query: str, docs: List[Document], agent_config: AgentConf
 
 
 def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: DashScopeRerank) -> AgentState:
+    logger.info('\n' + '-' * 100)
+
     docs = []
     # 1.收集所有的文档
     if agent_config.generate_sub_queries_enabled:
@@ -502,6 +558,7 @@ def _sort_enhance(agent_state: AgentState, agent_config: AgentConfig, reranker: 
         state=agent_state
     )
     agent_state["docs"] = docs
+
     return agent_state
 
 
@@ -568,6 +625,7 @@ def route_ask_again(state: AgentState) -> str:
         "ask" if state["ask_obj"].need_ask and state["curr_ask_num"] < state["max_ask_num"]
         else "pass"
     )
+
 
 def _history_clean(state: AgentState, keep_count: int = 10):
     # dialogue_messages: List[BaseMessage]  # 主对话历史

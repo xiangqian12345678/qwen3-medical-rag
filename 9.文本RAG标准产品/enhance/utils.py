@@ -78,9 +78,6 @@ def invoke_with_timing(llm_chain, inputs: dict, stage_name: str = "llm_call", st
 
     result = strip_think_get_tokens(ai_msg, generate_time=generate_time)
 
-    # 记录性能日志
-    logger.info(f"  {stage_name}: {result['generate_time']:.2f}秒")
-
     # 如果提供了state，将性能信息记录到performance列表
     if state is not None and "performance" in state:
         perf_info = {
