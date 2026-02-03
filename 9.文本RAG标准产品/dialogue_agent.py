@@ -77,7 +77,7 @@ class DialogueAgent:
         # 召回增强
         graph.add_node("recall_enhance", partial(_recall_enhance, agent_config=self.agent_config, llm=self.llm))
         # 文档召回
-        graph.add_node("recall", partial(_recall, recall_graph=self.recall_graph, agent_config=self.agent_config))
+        graph.add_node("recall", partial(_recall_parallel, recall_graph=self.recall_graph, agent_config=self.agent_config))
         # 文档过滤
         graph.add_node("filter_enhance", partial(_filter_enhance, agent_config=self.agent_config,
                                                  embeddings_model=self.embeddings_model, llm=self.llm))
@@ -141,6 +141,118 @@ def _recall_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: Bas
     return agent_state
 
 
+def _recall_parallel(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
+    import os
+    cpu_count = os.cpu_count()
+    new_state = agent_state.copy()
+    start_time = time.time()
+
+    def is_empty(s: str | None) -> bool:
+        return not s or not s.strip()
+
+    def _run_one(single_query: str) -> List[Document]:
+        docs = recall_graph.search_parallel(query=single_query, agent_state=agent_state)
+        return docs
+
+    def _parallel_recall(query_list: List[str], max_parallel: int = 1) -> List[List[Document]]:
+        all_docs: List[List[Document]] = []
+        with ThreadPoolExecutor(max_workers=min(len(query_list), max_parallel)) as recall_executor:
+            future_list = []
+            for single_query in query_list:
+                future_list.append(recall_executor.submit(_run_one, single_query))
+
+            for single_future in as_completed(future_list):
+                try:
+                    docs = single_future.result()
+                    all_docs.append(docs)
+                except Exception as e:
+                    print('generated an exception: %s' % e)
+        return all_docs
+
+    def _process_sub_queries() -> None:
+        sub_queries: SubQueries = new_state.get("sub_query", SubQueries(need_split=False, queries=[]))
+        if (agent_config.generate_sub_queries_enabled
+                and sub_queries.need_split
+                and len(sub_queries.queries) > 0):
+            doc_list_list = invoke_with_timing(
+                func=_parallel_recall,
+                query_list=sub_queries.queries,
+                max_parallel=cpu_count,
+                stage_name="sub_query_parallel_recall",
+                state=agent_state
+            )
+            new_state["sub_query_results"] = doc_list_list
+
+    def _process_rewrite_query() -> None:
+        rewrite_query: RewriteQuery = new_state.get("rewrite_query", RewriteQuery(query=""))
+        if agent_config.query_rewrite_enabled and not is_empty(rewrite_query.query):
+            docs = invoke_with_timing(
+                func=_run_one,
+                single_query=rewrite_query.query,
+                stage_name="rewrite_query_recall",
+                state=agent_state
+            )
+            new_state["rewrite_query_docs"] = docs
+
+    def _process_multi_queries() -> None:
+        multi_queries: MultiQueries = new_state.get("multi_query", MultiQueries(queries=[]))
+        if agent_config.generate_multi_queries_enabled and len(multi_queries.queries) > 0:
+            doc_list_list = invoke_with_timing(
+                func=_parallel_recall,
+                query_list=multi_queries.queries,
+                max_parallel=cpu_count,
+                stage_name="multi_query_parallel_recall",
+                state=agent_state
+            )
+            new_state["multi_query_docs"] = doc_list_list
+
+    def _process_superordinate_query() -> None:
+        superordinate_query: SuperordinateQuery = new_state.get("superordinate_query", SuperordinateQuery())
+        if agent_config.generate_superordinate_query_enabled and not is_empty(superordinate_query.superordinate_query):
+            docs = invoke_with_timing(
+                func=_run_one,
+                single_query=superordinate_query.superordinate_query,
+                stage_name="superordinate_query_recall",
+                state=agent_state
+            )
+            new_state["superordinate_query_docs"] = docs
+
+    def _process_hypothetical_answer() -> None:
+        hypothetical_answer: HypotheticalAnswer = new_state.get("hypothetical_answer", HypotheticalAnswer())
+        if agent_config.generate_hypothetical_answer_enabled and not is_empty(hypothetical_answer.hypothetical_answer):
+            docs = invoke_with_timing(
+                func=_run_one,
+                single_query=hypothetical_answer.hypothetical_answer,
+                stage_name="hypothetical_answer_recall",
+                state=agent_state
+            )
+            new_state["hypothetical_answer_docs"] = docs
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [
+            executor.submit(_process_sub_queries),
+            executor.submit(_process_rewrite_query),
+            executor.submit(_process_multi_queries),
+            executor.submit(_process_superordinate_query),
+            executor.submit(_process_hypothetical_answer)
+        ]
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f'Recall error: {e}')
+
+    elapsed_time = time.time() - start_time
+    perf_info = {
+        "stage": "_recall_parallel",
+        "duration": elapsed_time,
+        "timestamp": time.time()
+    }
+    new_state["performance"].append(perf_info)
+
+    return new_state
+
+
 def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_config: AgentConfig) -> AgentState:
     import os
     cpu_count = os.cpu_count()
@@ -148,7 +260,8 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
 
     # 1.定义query检索函数
     def _run_one(single_query: str) -> List[Document]:
-        docs = recall_graph.search(query=single_query, agent_state=agent_state)
+        # docs = recall_graph.search(query=single_query, agent_state=agent_state)
+        docs = recall_graph.search_parallel(query=single_query, agent_state=agent_state)
         return docs
 
     def _parallel_recall(query_list: List[str], max_parallel: int = 1) -> List[List[Document]]:

@@ -117,3 +117,78 @@ class IntegratedRecall:
             docs.extend(kg_docs)
 
         return docs
+
+    def search_parallel(self, query: str, agent_state: AgentState = None) -> List[Document]:
+        """
+        并行检索函数: 同时执行数据库检索、网络检索和知识图谱检索
+
+        Args:
+            query: 检索查询
+            agent_state: Agent状态对象,用于记录耗时信息
+
+        Returns:
+            检索到的文档列表
+        """
+        import concurrent.futures
+        from utils import invoke_with_timing
+
+        docs: List[Document] = []
+
+        # 定义检索任务列表
+        search_tasks = []
+
+        # 1. 数据库检索任务(始终执行)
+        def _db_search():
+            tool_result = invoke_with_timing(
+                func=lambda: self.db_search_tool.invoke({"query": query}),
+                stage_name="db_search",
+                state=agent_state
+            )
+            return json_to_list_document(tool_result)
+
+        search_tasks.append(("db", _db_search))
+
+        # 2. 网络检索任务(根据配置决定是否执行)
+        if self.appConfig.agent_config.network_search_enabled and self.network_search_tool is not None:
+            def _web_search():
+                tool_result = invoke_with_timing(
+                    func=lambda: self.network_search_tool.invoke(query),
+                    stage_name="web_search",
+                    state=agent_state
+                )
+                return web_json_to_list_document(tool_result)
+
+            search_tasks.append(("web", _web_search))
+
+        # 3. 知识图谱检索任务(根据配置决定是否执行)
+        if self.appConfig.agent_config.kgraph_search_enabled and self.kgraph_search_tool is not None:
+            def _kgraph_search():
+                tool_result = invoke_with_timing(
+                    func=lambda: self.kgraph_search_tool.invoke(query),
+                    stage_name="kgraph_search",
+                    state=agent_state
+                )
+                return kg_json_to_list_document(tool_result)
+
+            search_tasks.append(("kgraph", _kgraph_search))
+
+        # 并行执行所有检索任务
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(search_tasks)) as executor:
+            # 提交所有任务
+            future_to_task = {
+                executor.submit(task_func): task_name
+                for task_name, task_func in search_tasks
+            }
+
+            # 等待所有任务完成并收集结果
+            for future in concurrent.futures.as_completed(future_to_task):
+                task_name = future_to_task[future]
+                try:
+                    result_docs = future.result()
+                    if result_docs:
+                        docs.extend(result_docs)
+                        logger.info(f"{task_name}检索完成,返回{len(result_docs)}个文档")
+                except Exception as e:
+                    logger.error(f"{task_name}检索失败: {e}")
+
+        return docs
