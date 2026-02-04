@@ -20,6 +20,8 @@ class WebSearcher:
     def __init__(self, config: Union[Dict[str, Any], None] = None):
         self.config = config or {}
 
+        logger.info(f"初始化网络搜索工具,配置: {self.config}")
+
     def search(self, query: str, cnt: int = 5) -> list[Document]:
         """真正去拉取网页结果的搜索函数"""
         docs = []

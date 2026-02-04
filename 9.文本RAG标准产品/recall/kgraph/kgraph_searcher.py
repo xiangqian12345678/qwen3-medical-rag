@@ -43,6 +43,8 @@ class GraphSearcher:
         connected = connection.connect()
         if not connected:
             logger.warning(f"Neo4j连接失败: {connection.uri}")
+        else:
+            logger.info(f"Neo4j连接成功: {connection.uri}")
 
         self.connection = connection
         self.database = database or self.connection.database
@@ -125,54 +127,54 @@ class GraphSearcher:
         except Exception as e:
             logger.error(f"加载向量索引失败: {e}")
 
-    # def search_by_vector(self, query_text: str, threshold: float = 0.5, top_k: int = 5) -> List[Document]:
-    #     """
-    #     基于向量相似度搜索实体
-    #
-    #     Args:
-    #         query_text: 查询文本
-    #         threshold: 相似度阈值
-    #         top_k: 返回结果数量限制
-    #
-    #     Returns:
-    #         Document对象列表
-    #     """
-    #     if not self.embedding_client or len(self.entity_index["embeddings"]) == 0:
-    #         logger.warning("向量检索不可用，回退到关键词检索")
-    #         return self.search_by_keyword(query_text, top_k)
-    #
-    #     try:
-    #         # 生成查询嵌入
-    #         query_embedding = self.embedding_client.embed_query(query_text)
-    #         query_vector = np.array(query_embedding).reshape(1, -1)
-    #
-    #         # 计算相似度
-    #         similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
-    #
-    #         documents = []
-    #         for idx, sim in enumerate(similarities):
-    #             if sim >= threshold:
-    #                 content = f"{self.entity_index['types'][idx]}: {self.entity_index['names'][idx]}"
-    #                 metadata = {
-    #                     "node_id": self.entity_index["ids"][idx],
-    #                     "entity_name": self.entity_index["names"][idx],
-    #                     "entity_type": self.entity_index["types"][idx],
-    #                     "similarity": float(sim),
-    #                     "source": "knowledge_graph",
-    #                     "query": query_text
-    #                 }
-    #
-    #                 documents.append(Document(page_content=content, metadata=metadata))
-    #
-    #         # 排序并截取top_k
-    #         documents.sort(key=lambda x: x.metadata.get("similarity", 0), reverse=True)
-    #         logger.info(f"向量检索找到 {len(documents[:top_k])} 个相似实体")
-    #
-    #         return documents[:top_k]
-    #
-    #     except Exception as e:
-    #         logger.error(f"向量检索失败: {e}")
-    #         return []
+    def search_by_vector(self, query_text: str, threshold: float = 0.5, top_k: int = 5) -> List[Document]:
+        """
+        基于向量相似度搜索实体
+
+        Args:
+            query_text: 查询文本
+            threshold: 相似度阈值
+            top_k: 返回结果数量限制
+
+        Returns:
+            Document对象列表
+        """
+        if not self.embedding_client or len(self.entity_index["embeddings"]) == 0:
+            logger.warning("向量检索不可用，回退到关键词检索")
+            return self.search_by_keyword(query_text, top_k)
+
+        try:
+            # 生成查询嵌入
+            query_embedding = self.embedding_client.embed_query(query_text)
+            query_vector = np.array(query_embedding).reshape(1, -1)
+
+            # 计算相似度
+            similarities = cosine_similarity(query_vector, self.entity_index["embeddings"])[0]
+
+            documents = []
+            for idx, sim in enumerate(similarities):
+                if sim >= threshold:
+                    content = f"{self.entity_index['types'][idx]}: {self.entity_index['names'][idx]}"
+                    metadata = {
+                        "node_id": self.entity_index["ids"][idx],
+                        "entity_name": self.entity_index["names"][idx],
+                        "entity_type": self.entity_index["types"][idx],
+                        "similarity": float(sim),
+                        "source": "knowledge_graph",
+                        "query": query_text
+                    }
+
+                    documents.append(Document(page_content=content, metadata=metadata))
+
+            # 排序并截取top_k
+            documents.sort(key=lambda x: x.metadata.get("similarity", 0), reverse=True)
+            logger.info(f"向量检索找到 {len(documents[:top_k])} 个相似实体")
+
+            return documents[:top_k]
+
+        except Exception as e:
+            logger.error(f"向量检索失败: {e}")
+            return []
 
     def search_by_keyword(self, keyword: str, limit: int = 50) -> List[Document]:
         """
