@@ -235,7 +235,7 @@ def _recall_enhance(agent_state: AgentState, agent_config: AgentConfig, llm: Bas
         query_info["hypothetical_answer"] = hypothetical_answer.hypothetical_answer
 
     perf_info = {
-        "stage": "_recall_enhance_parallel",
+        "stage": "_recall_enhance",
         "duration": elapsed_time,
         "timestamp": time.time(),
         "query_info": query_info

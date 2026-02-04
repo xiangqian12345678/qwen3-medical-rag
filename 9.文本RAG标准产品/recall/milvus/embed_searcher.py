@@ -1,6 +1,7 @@
 """向量检索器 - 支持混合检索和向量融合"""
 import hashlib
 import logging
+import threading
 from typing import Dict, Any, Optional, Union, List
 
 from langchain_core.documents import Document
@@ -19,6 +20,10 @@ logger = logging.getLogger(__name__)
 # 知识库实例缓存
 _kb_instance: Optional["EmbedSearcher"] = None
 _kb_embed_model: Optional[Embeddings] = None
+
+# 全局锁，用于线程安全的 Milvus 连接和单例创建
+_connection_lock = threading.Lock()
+_kb_lock = threading.Lock()
 
 
 class EmbedSearcher:
@@ -49,19 +54,20 @@ class EmbedSearcher:
 
         self.collection_name = self.embedConfig.milvus.collection_name
 
-        # 连接Milvus - 如果已存在连接则跳过
-        if not connections.has_connection("default"):
-            connections.connect(
-                alias="default",
-                uri=self.embedConfig.milvus.uri,
-                token=self.embedConfig.milvus.token
-            )
-            logger.info(f"连接 Milvus: {self.embedConfig.milvus.uri}")
-
-            # 验证连接
+        # 连接Milvus - 如果已存在连接则跳过（线程安全）
+        with _connection_lock:
             if not connections.has_connection("default"):
-                raise RuntimeError("Milvus 连接验证失败")
-            logger.info("Milvus 连接验证成功")
+                connections.connect(
+                    alias="default",
+                    uri=self.embedConfig.milvus.uri,
+                    token=self.embedConfig.milvus.token
+                )
+                logger.info(f"连接 Milvus: {self.embedConfig.milvus.uri}")
+
+                # 验证连接
+                if not connections.has_connection("default"):
+                    raise RuntimeError("Milvus 连接验证失败")
+                logger.info("Milvus 连接验证成功")
 
         # 获取集合
         self.collection = Collection(self.collection_name)
@@ -281,7 +287,7 @@ class VectorFieldProcessor:
 
 def get_kb(config: Dict[str, Any] = None, embed_model: Embeddings = None) -> EmbedSearcher:
     """
-    获取知识库实例（单例模式）
+    获取知识库实例（单例模式，线程安全）
 
     Args:
         config: 配置字典
@@ -292,11 +298,15 @@ def get_kb(config: Dict[str, Any] = None, embed_model: Embeddings = None) -> Emb
     """
     global _kb_instance, _kb_embed_model
 
+    # 双重检查锁定模式
     if _kb_instance is None or embed_model != _kb_embed_model:
-        if config is None:
-            raise ValueError("首次调用必须传入config参数")
-        _kb_instance = EmbedSearcher(config, embed_model=embed_model)
-        _kb_embed_model = embed_model
+        with _kb_lock:
+            # 再次检查，防止其他线程已经创建
+            if _kb_instance is None or embed_model != _kb_embed_model:
+                if config is None:
+                    raise ValueError("首次调用必须传入config参数")
+                _kb_instance = EmbedSearcher(config, embed_model=embed_model)
+                _kb_embed_model = embed_model
 
     return _kb_instance
 
