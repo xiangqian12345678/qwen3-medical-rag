@@ -49,17 +49,24 @@ class EmbedSearcher:
 
         self.collection_name = self.embedConfig.milvus.collection_name
 
-        # 连接Milvus
-        connections.connect(
-            alias="default",
-            uri=self.embedConfig.milvus.uri,
-            token=self.embedConfig.milvus.token
-        )
+        # 连接Milvus - 如果已存在连接则跳过
+        if not connections.has_connection("default"):
+            connections.connect(
+                alias="default",
+                uri=self.embedConfig.milvus.uri,
+                token=self.embedConfig.milvus.token
+            )
+            logger.info(f"连接 Milvus: {self.embedConfig.milvus.uri}")
+
+            # 验证连接
+            if not connections.has_connection("default"):
+                raise RuntimeError("Milvus 连接验证失败")
+            logger.info("Milvus 连接验证成功")
 
         # 获取集合
         self.collection = Collection(self.collection_name)
 
-        # 初始化向量处理器  00000
+        # 初始化向量处理器
         self.field_processor = VectorFieldProcessor(self.embedConfig, embed_model=embed_model)
 
     def search(self, req: SearchRequest) -> List[Document]:
@@ -196,12 +203,14 @@ class EmbedSearcher:
             return RRFRanker(k=60)
 
     def __del__(self):
-        """析构函数，关闭连接"""
-        try:
-            from pymilvus import connections
-            connections.disconnect("default")
-        except:
-            pass
+        """析构函数，不关闭连接以支持多线程"""
+        # 注释掉断开连接的代码，保持连接供多线程使用
+        # try:
+        #     from pymilvus import connections
+        #     connections.disconnect("default")
+        # except:
+        #     pass
+        pass
 
 
 class VectorFieldProcessor:

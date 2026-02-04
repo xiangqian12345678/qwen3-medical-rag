@@ -7,15 +7,20 @@ import json
 import logging
 
 from app_config import APPConfig
-from recall.kgraph.kg_loader import KGraphConfigLoader
-from recall.milvus.embed_loader import EmbedConfigLoader
 from dialogue_agent import DialogueAgent, _history_clean
 from rag.rag_loader import RAGConfigLoader
+from recall.kgraph.kg_loader import KGraphConfigLoader
+from recall.milvus.embed_loader import EmbedConfigLoader
 from utils import create_llm_client, create_embedding_client, create_reranker_client
 
+# 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 屏蔽第三方库的调试日志
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("primp").setLevel(logging.WARNING)  # 屏蔽 ddgs 库的 primp 日志
 
 
 def main():
@@ -87,7 +92,6 @@ def main():
             for perf in state.get("performance", []):
                 logging.info(json.dumps(perf, ensure_ascii=False, indent=2))
             logging.info("-" * 50)
-
 
             # 确保历史消息不要超过一定数量
             _history_clean(state)
