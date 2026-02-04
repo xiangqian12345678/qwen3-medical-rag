@@ -38,109 +38,34 @@ milvus:
 # - dashscope: 阿里云千问向量服务，如 text-embedding-v2
 
 # 使用 Ollama 本地向量服务（取消注释以启用）
-#dense_fields:
-#  chunk:
-#    embed: true
-#    type: str
-#    dimension: 1024
-#    model: bge-m3:latest
-#    base_url: http://localhost:11434
-#    provider: ollama
-#    workers: 8
-#    index_field: chunk_dense
-#    index_type: HNSW
-#    index_params:
-#      M: 32
-#      efConstruction: 200
-#    search_params:
-#      ef: 64
-#    metric_type: COSINE
-#
-#  parent_chunk:
-#    embed: true
-#    type: str
-#    dimension: 1024
-#    model: bge-m3:latest
-#    base_url: http://localhost:11434
-#    provider: ollama
-#    workers: 8
-#    index_field: parent_chunk_dense
-#    index_type: HNSW
-#    index_params:
-#      M: 32
-#      efConstruction: 200
-#    search_params:
-#      ef: 64
-#    metric_type: COSINE
-#
-#  summary:
-#    embed: true
-#    type: str
-#    dimension: 1024
-#    model: bge-m3:latest
-#    base_url: http://localhost:11434
-#    provider: ollama
-#    workers: 8
-#    index_field: summary_dense
-#    index_type: HNSW
-#    index_params:
-#      M: 32
-#      efConstruction: 200
-#    search_params:
-#      ef: 64
-#    metric_type: COSINE
-#
-#  questions:
-#    embed: true
-#    type: list
-#    dimension: 1024
-#    model: bge-m3:latest
-#    base_url: http://localhost:11434
-#    provider: ollama
-#    workers: 8
-#    index_field: questions_dense
-#    index_type: HNSW
-#    index_params:
-#      M: 32
-#      efConstruction: 200
-#    search_params:
-#      ef: 64
-#    metric_type: COSINE
-
-# 使用 DashScope 千问向量服务（当前启用）
-# =============================================================================
 dense_fields:
-  # chunk 字段配置
   chunk:
-    embed: true              # 是否对该字段进行向量化
-    type: str                # 字段类型：str=字符串类型，list=列表类型（列表类型会生成多个向量索引）
-    provider: dashscope
-    model: text-embedding-v2
-    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-    dimension: 1536
-    workers: 8                # 并发向量化工作线程数
-    index_field: chunk_dense # 索引字段名称（向量存储字段）
-    index_type: HNSW          # 索引类型：HNSW/IVF_FLAT/IVF_PQ等
-    index_params: # 索引构建参数
-      M: 32                  # HNSW参数：每个节点的最大连接数
-      efConstruction: 200    # HNSW参数：构建时的搜索宽度
-    search_params: # 检索参数
-      ef: 64                 # HNSW检索时的搜索宽度
-    metric_type: COSINE      # 距离度量类型：COSINE/IP/L2
+    embed: true
+    type: str
+    dimension: 1024
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    provider: ollama
+    workers: 8
+    index_field: chunk_dense
+    index_type: HNSW
+    index_params:
+      M: 32
+      efConstruction: 200
+    search_params:
+      ef: 64
+    metric_type: COSINE
 
-  # parent_chunk 字段配置（父级文本块，用于更大范围的上下文检索）
   parent_chunk:
-    embed: true                    # 是否对该字段进行向量化
-    type: str                      # 字段类型
-    provider: dashscope
-    model: text-embedding-v2
-    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-    dimension: 1536
-    workers: 8                     # 并发向量化工作线程数
-    index_field: parent_chunk_dense  # 索引字段名称
-    index_type: HNSW               # 索引类型
+    embed: true
+    type: str
+    dimension: 1024
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    provider: ollama
+    workers: 8
+    index_field: parent_chunk_dense
+    index_type: HNSW
     index_params:
       M: 32
       efConstruction: 200
@@ -148,21 +73,16 @@ dense_fields:
       ef: 64
     metric_type: COSINE
 
-
-  # summary 字段配置（文档摘要，用于快速概览检索）
-  # 注意：Milvus 限制一个集合最多 4 个向量字段，已达到上限
-  # summary 字段配置为不向量化，仅作为文本存储用于检索结果展示
   summary:
-    embed: false                  # 是否对该字段进行向量化（禁用以符合 Milvus 限制）
-    type: str                      # 字段类型
-    provider: dashscope
-    model: text-embedding-v2
-    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-    dimension: 1536
-    workers: 8                     # 并发向量化工作线程数
-    index_field: summary_dense     # 索引字段名称
-    index_type: HNSW               # 索引类型
+    embed: true
+    type: str
+    dimension: 1024
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    provider: ollama
+    workers: 8
+    index_field: summary_dense
+    index_type: HNSW
     index_params:
       M: 32
       efConstruction: 200
@@ -170,18 +90,16 @@ dense_fields:
       ef: 64
     metric_type: COSINE
 
-  # questions 字段配置（列表类型，用于问题-答案对检索）
   questions:
-    embed: true                    # 是否对该字段进行向量化
-    type: list                    # 字段类型：list=列表类型，会为列表中每个元素生成向量
-    provider: dashscope
-    model: text-embedding-v2
-    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
-    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
-    dimension: 1536
-    workers: 8                    # 并发向量化工作线程数
-    index_field: questions_dense  # 索引字段名称
-    index_type: HNSW              # 索引类型
+    embed: true
+    type: list
+    dimension: 1024
+    model: bge-m3:latest
+    base_url: http://localhost:11434
+    provider: ollama
+    workers: 8
+    index_field: questions_dense
+    index_type: HNSW
     index_params:
       M: 32
       efConstruction: 200
@@ -189,24 +107,106 @@ dense_fields:
       ef: 64
     metric_type: COSINE
 
-# =============================================================================
-# 稀疏向量字段配置
-# =============================================================================
-sparse_fields:
-  # chunk 字段配置（稀疏向量检索）
-  chunk:
-    embed: true                    # 是否对该字段进行稀疏向量化索引
-    vocab_path: ../output/vocab/vocab.pkl.gz  # 词库文件路径
-    algorithm: BM25                # 稀疏向量算法：BM25
-    k1: 1.5                        # BM25参数：词频饱和度
-    b: 0.75                        # BM25参数：文档长度归一化因子
-    domain_model: medicine         # 领域模型：用于分词和词权重
-    workers: 8                     # 并发工作线程数
-    index_field: chunk_sparse      # 索引字段名称
-    index_type: SPARSE_INVERTED_INDEX  # 索引类型
-    index_params: # 索引构建参数
-      inverted_index_algo: DAAT_MAXSCORE  # 倒排索引算法
-    metric_type: IP                # 距离度量类型：IP=内积
+## 使用 DashScope 千问向量服务（当前启用）
+## =============================================================================
+#dense_fields:
+#  # chunk 字段配置
+#  chunk:
+#    embed: true              # 是否对该字段进行向量化
+#    type: str                # 字段类型：str=字符串类型，list=列表类型（列表类型会生成多个向量索引）
+#    provider: dashscope
+#    model: text-embedding-v2
+#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+#    dimension: 1536
+#    workers: 8                # 并发向量化工作线程数
+#    index_field: chunk_dense # 索引字段名称（向量存储字段）
+#    index_type: HNSW          # 索引类型：HNSW/IVF_FLAT/IVF_PQ等
+#    index_params: # 索引构建参数
+#      M: 32                  # HNSW参数：每个节点的最大连接数
+#      efConstruction: 200    # HNSW参数：构建时的搜索宽度
+#    search_params: # 检索参数
+#      ef: 64                 # HNSW检索时的搜索宽度
+#    metric_type: COSINE      # 距离度量类型：COSINE/IP/L2
+#
+#  # parent_chunk 字段配置（父级文本块，用于更大范围的上下文检索）
+#  parent_chunk:
+#    embed: true                    # 是否对该字段进行向量化
+#    type: str                      # 字段类型
+#    provider: dashscope
+#    model: text-embedding-v2
+#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+#    dimension: 1536
+#    workers: 8                     # 并发向量化工作线程数
+#    index_field: parent_chunk_dense  # 索引字段名称
+#    index_type: HNSW               # 索引类型
+#    index_params:
+#      M: 32
+#      efConstruction: 200
+#    search_params:
+#      ef: 64
+#    metric_type: COSINE
+#
+#
+#  # summary 字段配置（文档摘要，用于快速概览检索）
+#  # 注意：Milvus 限制一个集合最多 4 个向量字段，已达到上限
+#  # summary 字段配置为不向量化，仅作为文本存储用于检索结果展示
+#  summary:
+#    embed: false                  # 是否对该字段进行向量化（禁用以符合 Milvus 限制）
+#    type: str                      # 字段类型
+#    provider: dashscope
+#    model: text-embedding-v2
+#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+#    dimension: 1536
+#    workers: 8                     # 并发向量化工作线程数
+#    index_field: summary_dense     # 索引字段名称
+#    index_type: HNSW               # 索引类型
+#    index_params:
+#      M: 32
+#      efConstruction: 200
+#    search_params:
+#      ef: 64
+#    metric_type: COSINE
+#
+#  # questions 字段配置（列表类型，用于问题-答案对检索）
+#  questions:
+#    embed: true                    # 是否对该字段进行向量化
+#    type: list                    # 字段类型：list=列表类型，会为列表中每个元素生成向量
+#    provider: dashscope
+#    model: text-embedding-v2
+#    api_key: sk-9de21cd0776947ec9ef2396f7110cb6d
+#    base_url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+#    dimension: 1536
+#    workers: 8                    # 并发向量化工作线程数
+#    index_field: questions_dense  # 索引字段名称
+#    index_type: HNSW              # 索引类型
+#    index_params:
+#      M: 32
+#      efConstruction: 200
+#    search_params:
+#      ef: 64
+#    metric_type: COSINE
+#
+## =============================================================================
+## 稀疏向量字段配置
+## =============================================================================
+#sparse_fields:
+#  # chunk 字段配置（稀疏向量检索）
+#  chunk:
+#    embed: true                    # 是否对该字段进行稀疏向量化索引
+#    vocab_path: ../output/vocab/vocab.pkl.gz  # 词库文件路径
+#    algorithm: BM25                # 稀疏向量算法：BM25
+#    k1: 1.5                        # BM25参数：词频饱和度
+#    b: 0.75                        # BM25参数：文档长度归一化因子
+#    domain_model: medicine         # 领域模型：用于分词和词权重
+#    workers: 8                     # 并发工作线程数
+#    index_field: chunk_sparse      # 索引字段名称
+#    index_type: SPARSE_INVERTED_INDEX  # 索引类型
+#    index_params: # 索引构建参数
+#      inverted_index_algo: DAAT_MAXSCORE  # 倒排索引算法
+#    metric_type: IP                # 距离度量类型：IP=内积
 
 # =============================================================================
 # 基础字段配置
