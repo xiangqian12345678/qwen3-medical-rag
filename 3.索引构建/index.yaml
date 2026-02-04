@@ -74,7 +74,7 @@ dense_fields:
     metric_type: COSINE
 
   summary:
-    embed: true
+    embed: false
     type: str
     dimension: 1024
     model: bge-m3:latest
@@ -188,25 +188,26 @@ dense_fields:
 #    search_params:
 #      ef: 64
 #    metric_type: COSINE
-#
-## =============================================================================
-## 稀疏向量字段配置
-## =============================================================================
-#sparse_fields:
-#  # chunk 字段配置（稀疏向量检索）
-#  chunk:
-#    embed: true                    # 是否对该字段进行稀疏向量化索引
-#    vocab_path: ../output/vocab/vocab.pkl.gz  # 词库文件路径
-#    algorithm: BM25                # 稀疏向量算法：BM25
-#    k1: 1.5                        # BM25参数：词频饱和度
-#    b: 0.75                        # BM25参数：文档长度归一化因子
-#    domain_model: medicine         # 领域模型：用于分词和词权重
-#    workers: 8                     # 并发工作线程数
-#    index_field: chunk_sparse      # 索引字段名称
-#    index_type: SPARSE_INVERTED_INDEX  # 索引类型
-#    index_params: # 索引构建参数
-#      inverted_index_algo: DAAT_MAXSCORE  # 倒排索引算法
-#    metric_type: IP                # 距离度量类型：IP=内积
+
+
+# =============================================================================
+# 稀疏向量字段配置
+# =============================================================================
+sparse_fields:
+  # chunk 字段配置（稀疏向量检索）
+  chunk:
+    embed: true                    # 是否对该字段进行稀疏向量化索引
+    vocab_path: ../output/vocab/vocab.pkl.gz  # 词库文件路径
+    algorithm: BM25                # 稀疏向量算法：BM25
+    k1: 1.5                        # BM25参数：词频饱和度
+    b: 0.75                        # BM25参数：文档长度归一化因子
+    domain_model: medicine         # 领域模型：用于分词和词权重
+    workers: 8                     # 并发工作线程数
+    index_field: chunk_sparse      # 索引字段名称
+    index_type: SPARSE_INVERTED_INDEX  # 索引类型
+    index_params: # 索引构建参数
+      inverted_index_algo: DAAT_MAXSCORE  # 倒排索引算法
+    metric_type: IP                # 距离度量类型：IP=内积
 
 # =============================================================================
 # 基础字段配置
