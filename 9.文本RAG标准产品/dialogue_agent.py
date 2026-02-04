@@ -390,7 +390,7 @@ def _recall(agent_state: AgentState, recall_graph: "IntegratedRecall", agent_con
     doc_count_info["total_docs"] = total_docs
 
     perf_info = {
-        "stage": "_recall_parallel",
+        "stage": "_recall",
         "duration": elapsed_time,
         "timestamp": time.time(),
         "doc_count_info": doc_count_info
