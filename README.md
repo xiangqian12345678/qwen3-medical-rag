@@ -67,16 +67,21 @@
 
 ## 技术栈
 
-| 分类 | 技术 | 说明 |
-|------|------|------|
-| **框架** | LangChain、LangGraph | LLM 应用开发框架 |
-| **LLM** | 通义千问、GPT、Ollama | 大语言模型 |
-| **向量数据库** | Milvus | 高性能向量检索 |
-| **图数据库** | Neo4j | 知识图谱存储与查询 |
-| **嵌入模型** | BGE-M3、text-embedding-v2 | 文本向量化 |
-| **重排序** | text-reranker-v2 | 检索结果重排序 |
-| **中文分词** | pkuseg | 专业中文分词 |
-| **搜索引擎** | DuckDuckGo (ddgs) | 网络搜索 |
+| 分类        | 技术                       | 说明         |
+|-----------|--------------------------|------------|
+| **框架**    | LangChain、LangGraph      | LLM 应用开发框架 |
+| **LLM**   | 通义千问、GPT、Ollama          | 大语言模型      |
+| **向量数据库** | Milvus                   | 高性能向量检索    |
+| **图数据库**  | Neo4j                    | 知识图谱存储与查询  |
+| **嵌入模型**  | BGE-M3、text-embedding-v2 | 文本向量化      |
+| **重排序**   | text-reranker-v2         | 检索结果重排序    |
+| **中文分词**  | pkuseg                   | 专业中文分词     |
+| **搜索引擎**  | DuckDuckGo (ddgs)        | 网络搜索       |
+
+## 大模型微调
+
+[基于qwen3构建领域大模型](https://github.com/xiangqian12345678/qwen3-medical)
+
 
 ---
 
@@ -220,7 +225,12 @@ pip install -r requirements.txt
 
 ### 基础服务部署
 
-#### 1. Milvus 向量数据库
+#### 1.安装docker desktop
+
+    下载地址：  https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe
+    安装测试：  docker --version (powershell)
+
+#### 2. Milvus 向量数据库
 
 ```bash
 # 下载配置文件
@@ -233,7 +243,7 @@ docker compose up -d
 docker ps
 ```
 
-#### 2. Neo4j 图数据库
+#### 3. Neo4j 图数据库
 
 ```bash
 docker run -d --name neo4j \
@@ -242,7 +252,7 @@ docker run -d --name neo4j \
   neo4j:latest
 ```
 
-#### 3. Ollama 本地模型
+#### 4. Ollama 本地模型
 
 ```bash
 # 下载并安装 Ollama
@@ -305,6 +315,7 @@ python run_dialogue.py
 ### 0. 基础知识
 
 RAG 技术原理学习和基础示例代码，包含：
+
 - 索引优化：摘要索引、父子索引、假设性问题索引、元数据索引
 - 召回增强：Query 优化、Multi-query、问题分解、Step-back、HyDE
 - 排序过滤：RRF、Cross-Encoder、长上下文重排序、LLM 过滤、冗余去除
@@ -319,6 +330,7 @@ RAG 技术原理学习和基础示例代码，包含：
 数据处理全流程，包括数据融合、清理、过滤和标注。
 
 **核心功能**：
+
 - 数据融合：统一不同来源的数据格式（PDF/TXT/JSONL）
 - 数据清理：消除低质量内容（连贯性、实用性、安全性、清晰度）
 - 数据过滤：过滤政治、色情、非目标语义内容
@@ -333,6 +345,7 @@ RAG 技术原理学习和基础示例代码，包含：
 从标注数据构建 BM25 检索所需的词表。
 
 **核心功能**：
+
 - 支持并行分词处理
 - 中文专业分词（基于 pkuseg）
 - BM25 参数计算（TF-IDF）
@@ -341,6 +354,7 @@ RAG 技术原理学习和基础示例代码，包含：
 **输出**：`output/vocab/vocab.pkl.gz`
 
 **使用方法**：
+
 ```bash
 cd 2.词库生成
 python build_vocab.py
@@ -353,12 +367,14 @@ python build_vocab.py
 医疗知识库索引构建和检索模块，基于 Milvus 实现混合向量检索。
 
 **核心特性**：
+
 - 多向量字段支持：支持多个稠密向量字段和稀疏向量字段
 - List 类型字段展开：对于 `questions` 等列表类型字段，每个元素会展开为单独的向量索引行
 - 向量融合检索：支持 RRF 和加权融合策略
 - 配置驱动：所有配置通过 `index.yaml` 管理
 
 **多向量字段展开示例**：
+
 ```
 输入文档：{"chunk": "...", "questions": ["问题1", "问题2"]}
 
@@ -381,6 +397,7 @@ python build_vocab.py
 | chunk_sparse | SPARSE_FLOAT_VECTOR | 文本块稀疏向量(BM25) |
 
 **使用方法**：
+
 ```bash
 # 构建索引
 python run_build_index.py
@@ -399,6 +416,7 @@ python test_dashscope.py
 基于 Neo4j 的知识图谱 RAG 系统，支持单轮会话，整合向量检索和知识图谱检索。
 
 **核心功能**：
+
 - 完整的 Neo4j 操作：实体和关系的 CRUD 操作
 - 大模型集成：使用通义千问进行实体关系提取和答案生成
 - 向量检索：基于嵌入向量的相似度检索
@@ -406,18 +424,49 @@ python test_dashscope.py
 - RAG 整合：结合知识图谱和向量检索生成准确答案
 
 **知识图谱 Schema**：
+
 ```json
 {
-  "entity_types": ["药物", "症状", "疾病"],
+  "entity_types": [
+    "药物",
+    "症状",
+    "疾病"
+  ],
   "relationship_types": [
-    {"name": "治疗", "source": ["药物"], "target": ["症状", "疾病"]},
-    {"name": "导致", "source": ["疾病"], "target": ["症状"]},
-    {"name": "属于", "source": ["症状"], "target": ["疾病"]}
+    {
+      "name": "治疗",
+      "source": [
+        "药物"
+      ],
+      "target": [
+        "症状",
+        "疾病"
+      ]
+    },
+    {
+      "name": "导致",
+      "source": [
+        "疾病"
+      ],
+      "target": [
+        "症状"
+      ]
+    },
+    {
+      "name": "属于",
+      "source": [
+        "症状"
+      ],
+      "target": [
+        "疾病"
+      ]
+    }
   ]
 }
 ```
 
 **使用方法**：
+
 ```bash
 # 创建知识图谱
 python run_create_graph.py
@@ -439,11 +488,13 @@ python test_basic_function.py
 医疗知识库检索增强生成(RAG)系统，支持混合检索和向量融合。
 
 **核心功能**：
+
 - 混合检索：稠密向量（chunk/parent_chunk/questions）+ 稀疏向量（BM25）
 - 向量融合：RRF 或 Weighted 融合策略
 - LangChain 集成：标准 LangChain 检索器接口
 
 **检索配置**（`simple_rag.yaml`）：
+
 ```yaml
 dense_fields:
   chunk:
@@ -477,6 +528,7 @@ rag:
 ```
 
 **使用方法**：
+
 ```bash
 python run_example.py
 ```
@@ -488,6 +540,7 @@ python run_example.py
 多轮对话医疗 RAG 系统，支持会话管理、历史压缩、查询改写、混合检索等功能。
 
 **核心功能**：
+
 - 会话隔离：通过 `session_id` 区分不同用户会话
 - 历史压缩：自动检测对话长度，生成摘要释放 token 空间
 - 查询改写：基于对话历史将当前问题改写为独立查询
@@ -495,6 +548,7 @@ python run_example.py
 - Token 估算：支持多种 token 估算方法（avg/tiktoken）
 
 **处理流程**：
+
 ```
 用户问题
   ↓
@@ -512,11 +566,13 @@ python run_example.py
 ```
 
 **使用方法**：
+
 ```bash
 python run_example.py
 ```
 
 **代码集成示例**：
+
 ```python
 from config import ConfigLoader
 from multi_dialogue_rag import MultiDialogueRag
@@ -539,15 +595,17 @@ result = rag.generate_answer(
 单轮对话代理服务，基于 RAG 和 LangGraph 实现的医疗知识问答 Agent。
 
 **核心功能**：
+
 - 混合检索：稠密向量 + 稀疏向量（BM25）
 - 向量融合：RRF 和 Weighted 融合策略
 - Agent 模式：
-  - `analysis`：分析模式，带质量判断和重试机制
-  - `fast`：快速模式，直接返回结果
-  - `normal`：普通模式
+    - `analysis`：分析模式，带质量判断和重试机制
+    - `fast`：快速模式，直接返回结果
+    - `normal`：普通模式
 - 工具调用：支持向量数据库检索工具
 
 **Agent 状态流转**：
+
 ```
 查询输入
   ↓
@@ -565,6 +623,7 @@ result = rag.generate_answer(
 ```
 
 **使用方法**：
+
 ```bash
 python run_example.py
 ```
@@ -576,6 +635,7 @@ python run_example.py
 多轮对话 Agent 是一个基于 LangGraph 的医疗问答智能体，支持多轮对话、主动追问、查询拆分和并行检索等高级功能。
 
 **核心功能**：
+
 - 主动追问：根据用户输入判断是否需要追问关键信息
 - 背景信息抽取：从多轮对话中提取和整合背景信息
 - 查询拆分：自动判断是否需要将复杂问题拆分为多个子查询
@@ -583,6 +643,7 @@ python run_example.py
 - 质量判断：支持 RAG 结果质量评估和重试机制
 
 **Agent 状态流转**：
+
 ```
 用户输入
   ↓
@@ -602,6 +663,7 @@ python run_example.py
 ```
 
 **SearchGraph 状态流转（单查询 RAG）**：
+
 ```
 查询输入
   ↓
@@ -621,6 +683,7 @@ python run_example.py
 ```
 
 **使用方法**：
+
 ```bash
 python run_example.py
 ```
@@ -632,12 +695,14 @@ python run_example.py
 基于 LangGraph 和 LangChain 的医学领域检索增强生成（RAG）对话系统，支持多轮对话、复杂查询增强和多种检索方式融合。
 
 **核心功能**：
+
 - 多源融合检索：向量检索、知识图谱、网络搜索
 - 智能查询增强：主动追问、Query 改写、多查询生成、子查询拆分、上位词生成、假设性答案
 - 文档过滤与排序：相关性过滤、内容压缩、冗余去除、重排序
 - 多轮对话管理：对话历史、背景提取、追问机制、摘要缓存
 
 **完整流程**：
+
 ```
 用户输入
   ↓
@@ -659,11 +724,13 @@ python run_example.py
 ```
 
 **配置文件**：
+
 - `rag/rag_config.yaml`：LLM、Embedding、Reranker、Agent 配置
 - `recall/milvus/embed_config.yaml`：Milvus 向量检索配置
 - `recall/kgraph/kg_config.yaml`：Neo4j 知识图谱配置
 
 **使用方法**：
+
 ```bash
 # 启动交互式对话
 python run_dialogue.py
@@ -914,18 +981,18 @@ qwen3-medical-rag/
 
 ## 开发进度
 
-| 模块 | 进度 | 说明 |
-|------|------|------|
-| 0. 基础知识 | 100% | RAG 原理学习完成 |
-| 1. 数据处理 | 90% | 核心算法完善 |
-| 2. 词库生成 | 90% | 停用词缺失 |
-| 3. 索引构建 | 90% | 配置无用字段清除 |
-| 4. 知识图谱 | 100% | 功能完整 |
-| 5. 单轮对话 RAG | 100% | 检索字段配置、排序字段配置确认 |
-| 6. 多轮对话 RAG | 100% | 功能完整 |
-| 7. 单轮对话 Agent | 100% | 功能完整 |
-| 8. 多轮对话 Agent | 100% | 功能完整 |
-| 9. 文本 RAG 标准产品 | 95% | 全流程调试、代码简化、性能优化完成 |
+| 模块             | 进度   | 说明                |
+|----------------|------|-------------------|
+| 0. 基础知识        | 100% | RAG 原理学习完成        |
+| 1. 数据处理        | 90%  | 核心算法完善            |
+| 2. 词库生成        | 90%  | 停用词缺失             |
+| 3. 索引构建        | 90%  | 配置无用字段清除          |
+| 4. 知识图谱        | 100% | 功能完整              |
+| 5. 单轮对话 RAG    | 100% | 检索字段配置、排序字段配置确认   |
+| 6. 多轮对话 RAG    | 100% | 功能完整              |
+| 7. 单轮对话 Agent  | 100% | 功能完整              |
+| 8. 多轮对话 Agent  | 100% | 功能完整              |
+| 9. 文本 RAG 标准产品 | 95%  | 全流程调试、代码简化、性能优化完成 |
 
 ### 待优化项
 
@@ -941,6 +1008,7 @@ qwen3-medical-rag/
 修改配置文件中的 `provider` 字段：
 
 **DashScope（阿里云）**：
+
 ```yaml
 llm:
   provider: dashscope
@@ -950,6 +1018,7 @@ llm:
 ```
 
 **OpenAI**：
+
 ```yaml
 llm:
   provider: openai
@@ -958,6 +1027,7 @@ llm:
 ```
 
 **Ollama（本地）**：
+
 ```yaml
 llm:
   provider: ollama
@@ -1000,6 +1070,7 @@ agent:
 修改向量融合配置：
 
 **RRF 融合**：
+
 ```yaml
 fusion:
   method: rrf
@@ -1007,6 +1078,7 @@ fusion:
 ```
 
 **加权融合**：
+
 ```yaml
 fusion:
   method: weighted
@@ -1043,4 +1115,15 @@ fusion:
 
 ## 联系方式
 
-项目正在持续开发中，欢迎提出问题和建议！
+微信： 13552482980
+qq： 1012088761
+
+## 参考代码
+
+[medical-rag](https://github.com/ImprintLab/Medical-Graph-RAG)
+
+[open-graph-rag](https://github.com/OpenGraphRAG/MedicalGraphRAG?tab=readme-ov-file)
+
+[medical-graph-rag](https://github.com/OpenGraphRAG/MedicalGraphRAG)
+
+[ai-medical-assistant](https://github.com/zhttyy520/ai-medical-assistant)
